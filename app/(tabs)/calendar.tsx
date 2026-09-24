@@ -74,7 +74,7 @@ export default function CalendarScreen() {
   const router = useRouter();
   const bottom = useTabBarSpace();
   const insets = useSafeAreaInsets();
-  const { scrollY, onScroll } = useScreenScroll();
+  const { onScroll, scrolled } = useScreenScroll();
 
   const today = new Date();
   const todayStr = toDateStr(today);
@@ -153,7 +153,7 @@ export default function CalendarScreen() {
     <View style={s.root}>
       <ScreenBackground scene="calendar" />
       <TopBar
-        scrollY={scrollY}
+        scrolled={scrolled}
         title="Calendario"
         right={
           <PressableScale onPress={goToday} scaleTo={0.92} accessibilityLabel="Ir a hoy">

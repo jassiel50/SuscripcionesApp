@@ -1,11 +1,13 @@
-import React, { createContext, useContext, useEffect, useRef } from 'react';
-import { Animated as RNAnimated, StyleSheet, Text, View } from 'react-native';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import {
+  Animated as RNAnimated, type NativeScrollEvent, type NativeSyntheticEvent, StyleSheet, Text, View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
-  interpolate, Extrapolation, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue,
+  interpolate, Extrapolation, useAnimatedStyle, useSharedValue,
   withSpring, type SharedValue,
 } from 'react-native-reanimated';
 import { useTheme } from '../../hooks/useTheme';
@@ -33,29 +35,37 @@ export function useChrome() {
 }
 
 /**
- * Handler de scroll para pantallas: expone `scrollY` (para parallax / header)
- * y colapsa la tab bar según la dirección del scroll.
+ * Handler de scroll para pantallas: expone `scrollY` (para parallax / header),
+ * `scrolled` (booleano simple para mostrar/ocultar chrome) y colapsa la tab
+ * bar según la dirección del scroll.
+ *
+ * `onScroll` es una función normal de React (no un worklet de
+ * `useAnimatedScrollHandler`): dentro de un `KeyboardAvoidingView` ese
+ * scroll-handler no siempre se dispara, así que se escribe directo sobre los
+ * shared values desde el hilo de JS — sigue siendo reactivo para
+ * `useAnimatedStyle` y es más confiable en cualquier contexto.
  */
 export function useScreenScroll() {
   const { collapse } = useChrome();
   const scrollY = useSharedValue(0);
   const last = useSharedValue(0);
+  const [scrolled, setScrolled] = useState(false);
 
-  const onScroll = useAnimatedScrollHandler({
-    onScroll: e => {
-      const y = e.contentOffset.y;
-      const dy = y - last.value;
-      if (y < 40 || dy < -6) {
-        if (collapse.value !== 0) collapse.value = withSpring(0, spring.smooth);
-      } else if (dy > 6 && y > 80) {
-        if (collapse.value !== 1) collapse.value = withSpring(1, spring.smooth);
-      }
-      last.value = y;
-      scrollY.value = y;
-    },
-  });
+  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const y = e.nativeEvent.contentOffset.y;
+    const dy = y - last.value;
+    if (y < 40 || dy < -6) {
+      if (collapse.value !== 0) collapse.value = withSpring(0, spring.smooth);
+    } else if (dy > 6 && y > 80) {
+      if (collapse.value !== 1) collapse.value = withSpring(1, spring.smooth);
+    }
+    last.value = y;
+    scrollY.value = y;
+    const past = y > 24;
+    setScrolled(prev => (prev === past ? prev : past));
+  };
 
-  return { scrollY, onScroll };
+  return { scrollY, onScroll, scrolled };
 }
 
 export const TOP_BAR_H = 56;
@@ -65,9 +75,10 @@ export const TOP_BAR_H = 56;
  * un fondo de vidrio (blur) y el título compacto hace fade-in.
  */
 export function TopBar({
-  scrollY, title, left, right, children,
+  scrolled, title, left, right, children,
 }: {
-  scrollY: SharedValue<number>;
+  /** `true` una vez que la pantalla se deslizó más allá de un pequeño umbral. */
+  scrolled: boolean;
   title?: string;
   left?: React.ReactNode;
   right?: React.ReactNode;
@@ -77,17 +88,15 @@ export function TopBar({
   const insets = useSafeAreaInsets();
   const { colors, dark } = useTheme();
 
-  const bgStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(scrollY.value, [0, 50], [0, 1], Extrapolation.CLAMP),
-  }));
-  const titleStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(scrollY.value, [30, 70], [0, 1], Extrapolation.CLAMP),
-    transform: [{ translateY: interpolate(scrollY.value, [30, 70], [8, 0], Extrapolation.CLAMP) }],
-  }));
+  const bgOpacity = useRef(new RNAnimated.Value(0)).current;
+  useEffect(() => {
+    RNAnimated.timing(bgOpacity, { toValue: scrolled ? 1 : 0, duration: 220, useNativeDriver: true }).start();
+  }, [scrolled, bgOpacity]);
+  const titleTranslateY = bgOpacity.interpolate({ inputRange: [0, 1], outputRange: [8, 0] });
 
   return (
     <View style={[s.bar, { paddingTop: insets.top, height: insets.top + TOP_BAR_H }]} pointerEvents="box-none">
-      <Animated.View style={[StyleSheet.absoluteFill, bgStyle]} pointerEvents="none">
+      <RNAnimated.View style={[StyleSheet.absoluteFill, { opacity: bgOpacity }]} pointerEvents="none">
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: (insets.top + TOP_BAR_H) * 0.6 }}>
           <BlurView intensity={dark ? 46 : 32} tint={dark ? 'systemChromeMaterialDark' : 'systemChromeMaterialLight'} blurMethod="dimezisBlurViewSdk31Plus" style={StyleSheet.absoluteFill} />
         </View>
@@ -101,12 +110,12 @@ export function TopBar({
           locations={[0.32, 0.7, 1]}
           style={StyleSheet.absoluteFill}
         />
-      </Animated.View>
+      </RNAnimated.View>
       <View style={s.row}>
         {left}
         <View style={s.center}>
           {children ?? (title ? (
-            <Animated.Text style={[type.h3, { color: colors.text }, titleStyle]} numberOfLines={1}>{title}</Animated.Text>
+            <RNAnimated.Text style={[type.h3, { color: colors.text, opacity: bgOpacity, transform: [{ translateY: titleTranslateY }] }]} numberOfLines={1}>{title}</RNAnimated.Text>
           ) : null)}
         </View>
         {right}

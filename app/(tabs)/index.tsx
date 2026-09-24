@@ -30,7 +30,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const bottom = useTabBarSpace();
-  const { scrollY, onScroll } = useScreenScroll();
+  const { scrollY, onScroll, scrolled } = useScreenScroll();
 
   const [filter, setFilter] = useState<Filter>('all');
   const [budgetOpen, setBudgetOpen] = useState(false);
@@ -88,7 +88,7 @@ export default function HomeScreen() {
       <BudgetModal visible={budgetOpen} onClose={() => setBudgetOpen(false)} />
 
       <TopBar
-        scrollY={scrollY}
+        scrolled={scrolled}
         title="Inicio"
         left={
           <PressableScale onPress={() => router.push('/profile')} scaleTo={0.88} accessibilityLabel="Perfil">

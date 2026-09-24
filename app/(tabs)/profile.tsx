@@ -41,7 +41,7 @@ export default function ProfileScreen() {
   const { cards, removeCard, updateCard } = usePaymentCards();
   const bottom = useTabBarSpace();
   const insets = useSafeAreaInsets();
-  const { scrollY, onScroll } = useScreenScroll();
+  const { onScroll, scrolled } = useScreenScroll();
 
   const [showCardModal, setShowCardModal] = useState(false);
   const [editingCards, setEditingCards] = useState(false);
@@ -111,7 +111,7 @@ export default function ProfileScreen() {
     <View style={s.root}>
       <ScreenBackground scene="profile" />
       <BudgetModal visible={budgetOpen} onClose={() => setBudgetOpen(false)} />
-      <TopBar scrollY={scrollY} title="Perfil" />
+      <TopBar scrolled={scrolled} title="Perfil" />
 
       <Animated.ScrollView
         onScroll={onScroll}

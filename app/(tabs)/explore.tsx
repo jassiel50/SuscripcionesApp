@@ -29,7 +29,7 @@ export default function StatisticsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const bottom = useTabBarSpace();
-  const { scrollY, onScroll } = useScreenScroll();
+  const { onScroll, scrolled } = useScreenScroll();
   const [budgetOpen, setBudgetOpen] = useState(false);
 
   // Próximos 12 meses de cobros reales
@@ -120,7 +120,7 @@ export default function StatisticsScreen() {
     <View style={s.root}>
       <ScreenBackground scene="stats" />
       <BudgetModal visible={budgetOpen} onClose={() => setBudgetOpen(false)} />
-      <TopBar scrollY={scrollY} title="Estadísticas" />
+      <TopBar scrolled={scrolled} title="Estadísticas" />
 
       <Animated.ScrollView
         onScroll={onScroll}
