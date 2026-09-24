@@ -37,6 +37,7 @@ export interface Subscription {
   payment_method: PaymentMethod;
   description?: string;
   card_id?: string;     // reference to a PaymentCard id
+  icon?: string;         // nombre de ícono elegido a mano (ver identityIcons); anula el logo/letra
   created_at: string;
 }
 

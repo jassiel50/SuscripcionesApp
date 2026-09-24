@@ -41,7 +41,7 @@ function DayCell({
   const { colors } = useTheme();
   const size = compact ? 38 : 42;
   const num = (
-    <Text style={[s.dayNum, { color: selected ? colors.onInk : colors.text }, (selected || today) && { fontWeight: '900' }]}>
+    <Text style={[s.dayNum, { color: selected ? colors.onInk : colors.text }, (selected || today) && { fontWeight: '700' }]}>
       {date.getDate()}
     </Text>
   );
@@ -277,15 +277,15 @@ const s = StyleSheet.create({
 
   calendar: { marginHorizontal: spacing.screen, marginTop: 16, borderRadius: radius.lg, padding: 14, paddingBottom: 10, borderWidth: StyleSheet.hairlineWidth },
   monthRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  monthTotal: { fontSize: 12, fontWeight: '800', marginTop: 2 },
+  monthTotal: { fontSize: 12, fontWeight: '600', marginTop: 2 },
   nav: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
 
   week: { flexDirection: 'row' },
-  letter: { flex: 1, textAlign: 'center', fontSize: 12, fontWeight: '800', paddingVertical: 6 },
+  letter: { flex: 1, textAlign: 'center', fontSize: 12, fontWeight: '600', paddingVertical: 6 },
   dayCell: { flex: 1, alignItems: 'center', paddingVertical: 3, gap: 4 },
-  dayName: { fontSize: 11, fontWeight: '800' },
+  dayName: { fontSize: 11, fontWeight: '600' },
   dayCircle: { alignItems: 'center', justifyContent: 'center' },
-  dayNum: { fontSize: 15, fontWeight: '700' },
+  dayNum: { fontSize: 15, fontWeight: '500' },
   dots: { flexDirection: 'row', gap: 2, height: 5 },
   dot: { width: 5, height: 5, borderRadius: 3 },
 
@@ -294,5 +294,5 @@ const s = StyleSheet.create({
   totalText: { fontSize: 13, fontWeight: '900' },
 
   free: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: spacing.screen, marginTop: 6, borderRadius: radius.md, padding: 16 },
-  freeText: { fontSize: 15, fontWeight: '800' },
+  freeText: { fontSize: 15, fontWeight: '600' },
 });

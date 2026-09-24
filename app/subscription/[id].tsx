@@ -3,14 +3,15 @@ import { Alert, Platform, Pressable, StyleSheet, Text, ToastAndroid, View } from
 import Animated from 'react-native-reanimated';
 import * as Clipboard from 'expo-clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSubscriptions } from '../../src/hooks/useSubscriptions';
 import { useTheme } from '../../src/hooks/useTheme';
 import { usePaymentCards } from '../../src/hooks/usePaymentCards';
 import { CardChip } from '../../src/components/CardPickerModal';
 import {
-  GradientButton, GradientCircle, NotchCard, ProgressBar, ScreenBackground, Tag, useStackHeaderSpace, type IoniconName,
+  GradientButton, GradientCircle, NotchCard, ProgressBar, ScreenBackground, StackHeader, Tag, useStackHeaderSpace,
+  type IoniconName,
 } from '../../src/components/ui';
 import { enter, successHaptic } from '../../src/theme/motion';
 import { SubIcon, brandColor } from '../../src/utils/brandIcons';
@@ -82,7 +83,7 @@ export default function SubscriptionDetailScreen() {
   return (
     <View style={s.root}>
       <ScreenBackground scene="neutral" tint={tint} />
-      <Stack.Screen options={{ title: '' }} />
+      <StackHeader onBack={() => router.back()} />
       <Animated.ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: headerSpace + 4, paddingBottom: insets.bottom + 32 }}>
 
         {/* Hero con muesca */}
@@ -105,7 +106,7 @@ export default function SubscriptionDetailScreen() {
               <Text style={[s.heroPrice, { color: colors.text }]}>{int}<Text style={s.heroDec}>.{dec}</Text></Text>
               <Text style={[s.heroPer, { color: colors.subtext }]}>{sub.billing_cycle === 'monthly' ? 'por mes' : 'por año'}</Text>
             </View>
-            <SubIcon name={sub.name} color={sub.color} size={96} borderRadius={48} />
+            <SubIcon name={sub.name} color={sub.color} icon={sub.icon} size={96} borderRadius={48} />
           </View>
         </NotchCard>
         </Animated.View>
@@ -137,7 +138,7 @@ export default function SubscriptionDetailScreen() {
         </Animated.View>
         {paidApprox > 0 && (
           <Text style={[s.paid, { color: colors.subtext }]}>
-            Llevas aprox. <Text style={{ color: colors.text, fontWeight: '900' }}>{moneyShort(paidApprox)}</Text> pagados desde que la agregaste.
+            Llevas aprox. <Text style={{ color: colors.text, fontWeight: '700' }}>{moneyShort(paidApprox)}</Text> pagados desde que la agregaste.
           </Text>
         )}
 
@@ -168,7 +169,7 @@ export default function SubscriptionDetailScreen() {
                 <Text style={[type.bodyBold, { color: colors.text }]}>{linkedCard.alias}</Text>
                 {linkedCard.kind === 'clabe' && linkedCard.clabe
                   ? <Text style={[s.clabe, { color: colors.text }]}>{linkedCard.clabe.replace(/(\d{4})(?=\d)/g, '$1 ')}</Text>
-                  : <Text style={{ color: colors.subtext, fontWeight: '600' }}>{linkedCard.bank}</Text>}
+                  : <Text style={{ color: colors.subtext, fontWeight: '400' }}>{linkedCard.bank}</Text>}
               </View>
               {linkedCard.kind === 'clabe'
                 ? <Ionicons name="copy-outline" size={20} color={colors.text} />
@@ -195,31 +196,31 @@ const s = StyleSheet.create({
 
   hero: { marginHorizontal: spacing.screen, marginTop: 8, padding: 22, minHeight: 260 },
   heroName: { fontSize: 36, fontWeight: '900', letterSpacing: -1.2, lineHeight: 40, marginTop: 14 },
-  heroDesc: { fontSize: 14, fontWeight: '700', lineHeight: 20, marginTop: 12, maxWidth: '80%' },
+  heroDesc: { fontSize: 14, fontWeight: '500', lineHeight: 20, marginTop: 12, maxWidth: '80%' },
   heroBottom: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 18 },
   heroPrice: { fontSize: 36, fontWeight: '900', letterSpacing: -1.2 },
   heroDec: { fontSize: 18, fontWeight: '800' },
-  heroPer: { fontSize: 13, fontWeight: '700' },
+  heroPer: { fontSize: 13, fontWeight: '500' },
 
   cycle: { marginHorizontal: spacing.screen, marginTop: 14, borderRadius: radius.lg, padding: 18, gap: 12 , borderWidth: StyleSheet.hairlineWidth },
   cycleTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cycleDays: { fontSize: 15, fontWeight: '900' },
-  cycleFoot: { fontSize: 13, fontWeight: '700' },
+  cycleFoot: { fontSize: 13, fontWeight: '500' },
 
   insights: { flexDirection: 'row', gap: 10, marginHorizontal: spacing.screen, marginTop: 10 },
   insight: { flex: 1, borderRadius: radius.md, padding: 14, gap: 2 , borderWidth: StyleSheet.hairlineWidth },
-  insightLabel: { fontSize: 12, fontWeight: '700' },
+  insightLabel: { fontSize: 12, fontWeight: '500' },
   insightValue: { fontSize: 20, fontWeight: '900', letterSpacing: -0.6 },
-  paid: { fontSize: 13, fontWeight: '600', marginHorizontal: spacing.screen, marginTop: 12 },
+  paid: { fontSize: 13, fontWeight: '400', marginHorizontal: spacing.screen, marginTop: 12 },
 
   section: { ...type.h2, marginHorizontal: spacing.screen, marginTop: 26, marginBottom: 12 },
   list: { marginHorizontal: spacing.screen, borderRadius: radius.lg, overflow: 'hidden' , borderWidth: StyleSheet.hairlineWidth },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14 },
   rowIcon: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
-  rowLabel: { flex: 1, fontSize: 14, fontWeight: '700' },
-  rowValue: { fontSize: 14, fontWeight: '800', maxWidth: '55%' },
+  rowLabel: { flex: 1, fontSize: 14, fontWeight: '500' },
+  rowValue: { fontSize: 14, fontWeight: '700', maxWidth: '55%' },
   cardRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16 },
-  clabe: { fontSize: 14, fontWeight: '800', letterSpacing: 1.2 },
+  clabe: { fontSize: 14, fontWeight: '700', letterSpacing: 1.2 },
 
   actions: { flexDirection: 'row', gap: 12, marginHorizontal: spacing.screen, marginTop: 28 },
   delete: { width: 58, borderRadius: 29, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },

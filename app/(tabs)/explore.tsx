@@ -201,7 +201,7 @@ export default function StatisticsScreen() {
               const tint = brandColor(sub.name, sub.color, colors.vivid, i);
               return (
                 <Pressable key={sub.id} onPress={() => router.push(`/subscription/${sub.id}`)} style={s.rank}>
-                  <SubIcon name={sub.name} color={sub.color} size={40} borderRadius={20} />
+                  <SubIcon name={sub.name} color={sub.color} icon={sub.icon} size={40} borderRadius={20} />
                   <View style={{ flex: 1, gap: 7 }}>
                     <View style={s.rankTop}>
                       <Text style={[type.bodyBold, { color: colors.text, flex: 1 }]} numberOfLines={1}>{sub.name}</Text>
@@ -264,27 +264,27 @@ export default function StatisticsScreen() {
 const s = StyleSheet.create({
   root: { flex: 1 },
   hero: { marginHorizontal: spacing.screen, borderRadius: radius.xl, padding: 20, paddingBottom: 16, borderWidth: StyleSheet.hairlineWidth },
-  heroLabel: { fontSize: 14, fontWeight: '600' },
+  heroLabel: { fontSize: 14, fontWeight: '500' },
   heroAmount: { ...type.display, marginTop: 2 },
-  heroSub: { fontSize: 13, fontWeight: '600', marginTop: 2 },
+  heroSub: { fontSize: 13, fontWeight: '500', marginTop: 2 },
   peakChip: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.pill, marginTop: 12 },
-  peakText: { fontSize: 12, fontWeight: '700' },
+  peakText: { fontSize: 12, fontWeight: '600' },
 
   gauges: { flexDirection: 'row', gap: 12, marginHorizontal: spacing.screen, marginTop: 12 },
   gaugeCard: { flex: 1, borderRadius: radius.lg, paddingVertical: 16, alignItems: 'center', gap: 6, borderWidth: StyleSheet.hairlineWidth },
   gaugeTitle: { fontSize: 15, fontWeight: '700', alignSelf: 'flex-start', marginLeft: 16 },
   gaugeValue: { fontSize: 24, fontWeight: '800', letterSpacing: -0.6, fontVariant: ['tabular-nums'] },
-  gaugeFoot: { fontSize: 13, fontWeight: '700' },
+  gaugeFoot: { fontSize: 13, fontWeight: '500' },
 
   card: { marginHorizontal: spacing.screen, borderRadius: radius.lg, padding: 16, borderWidth: StyleSheet.hairlineWidth },
   donutValue: { fontSize: 26, fontWeight: '800', letterSpacing: -0.6 },
-  donutLabel: { fontSize: 12, fontWeight: '600' },
+  donutLabel: { fontSize: 12, fontWeight: '500' },
   legend: { paddingVertical: 8, gap: 7 },
   legendTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   legendDot: { width: 12, height: 12, borderRadius: 6 },
-  legendLabel: { flex: 1, fontSize: 14, fontWeight: '600' },
-  legendAmt: { fontSize: 13, fontWeight: '600' },
-  legendPct: { fontSize: 14, fontWeight: '800', minWidth: 40, textAlign: 'right' },
+  legendLabel: { flex: 1, fontSize: 14, fontWeight: '500' },
+  legendAmt: { fontSize: 13, fontWeight: '500' },
+  legendPct: { fontSize: 14, fontWeight: '700', minWidth: 40, textAlign: 'right' },
 
   rank: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   rankTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },

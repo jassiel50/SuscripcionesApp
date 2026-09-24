@@ -1,6 +1,7 @@
 import React from 'react';
 import { Text, View, useColorScheme } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+import { Ionicons } from '@expo/vector-icons';
 import {
   // Streaming
   siNetflix, siHbo, siMax, siYoutube, siTwitch, siCrunchyroll,
@@ -75,12 +76,27 @@ function luminance(hex: string): number {
   return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
 }
 
-export function SubIcon({ name, subId, color, size = 36, borderRadius = 9 }: {
-  name: string; subId?: string; color: string; size?: number; borderRadius?: number;
+export function SubIcon({ name, subId, color, icon: iconName, size = 36, borderRadius = 9 }: {
+  name: string; subId?: string; color: string;
+  /** Ícono elegido a mano (ver `identityIcons`); si viene, anula logo y letra. */
+  icon?: string;
+  size?: number; borderRadius?: number;
 }) {
   const dark = useColorScheme() === 'dark';
-  const icon = getBrandIcon(subId ?? '', name);
+  const icon = iconName ? null : getBrandIcon(subId ?? '', name);
   const iconSize = Math.round(size * 0.56);
+
+  if (iconName) {
+    return (
+      <View style={{
+        width: size, height: size, borderRadius,
+        backgroundColor: color,
+        alignItems: 'center', justifyContent: 'center',
+      }}>
+        <Ionicons name={iconName as React.ComponentProps<typeof Ionicons>['name']} size={Math.round(size * 0.5)} color="#fff" />
+      </View>
+    );
+  }
 
   if (icon) {
     const lum = luminance(icon.hex);

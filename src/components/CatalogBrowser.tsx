@@ -147,9 +147,9 @@ const s = StyleSheet.create({
   gridRow: { gap: 12, paddingHorizontal: spacing.screen, marginBottom: 12 },
   card: { width: CARD_W, borderRadius: radius.lg, padding: 16, gap: 4, borderWidth: StyleSheet.hairlineWidth },
   cardName: { fontSize: 16, fontWeight: '900', letterSpacing: -0.3, marginTop: 10 },
-  cardCat: { fontSize: 12, fontWeight: '700' },
+  cardCat: { fontSize: 12, fontWeight: '500' },
   cardBottom: { flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 8 },
-  cardFrom: { fontSize: 11, fontWeight: '700' },
+  cardFrom: { fontSize: 11, fontWeight: '500' },
   cardPrice: { fontSize: 18, fontWeight: '900', letterSpacing: -0.4 },
   empty: { alignItems: 'center', paddingVertical: 60, gap: 10 },
 
@@ -159,9 +159,9 @@ const s = StyleSheet.create({
   sheetHead: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 22 },
   close: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   plan: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: radius.md, padding: 16, marginBottom: 10 },
-  planDesc: { fontSize: 12, fontWeight: '600' },
+  planDesc: { fontSize: 12, fontWeight: '500' },
   planAnnual: { fontSize: 12, fontWeight: '800' },
   planPrice: { fontSize: 18, fontWeight: '900' },
-  planPer: { fontSize: 11, fontWeight: '700' },
+  planPer: { fontSize: 11, fontWeight: '500' },
   planGo: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
 });

@@ -4,7 +4,7 @@ import {
   Text, TextInput, View,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,30 +15,28 @@ import { usePaymentCards } from '../../src/hooks/usePaymentCards';
 import CardPickerModal, { CardChip } from '../../src/components/CardPickerModal';
 import CatalogBrowser from '../../src/components/CatalogBrowser';
 import {
-  FilterPills, GradientButton, PressableScale, ScreenBackground, useStackHeaderSpace, type IoniconName,
+  FilterPills, GradientButton, PressableScale, ScreenBackground, StackHeader, useStackHeaderSpace, type IoniconName,
 } from '../../src/components/ui';
 import { impactHaptic, successHaptic } from '../../src/theme/motion';
 import { SubIcon } from '../../src/utils/brandIcons';
 import { longDate, parseDate, toDateStr } from '../../src/utils/dates';
 import { money } from '../../src/utils/format';
 import { mapCategory, planPrice } from '../../src/utils/catalog';
-import { radius, spacing, type } from '../../src/theme/tokens';
+import { identityColors, identityIcons, radius, spacing, type } from '../../src/theme/tokens';
 import {
   CATEGORY_LABELS, type BillingCycle, type Category, type PaymentCard, type PaymentMethod,
 } from '../../src/types';
 import { PREDEFINED_SUBSCRIPTIONS } from '../../constants/subscriptions';
 
 const CATEGORIES = Object.entries(CATEGORY_LABELS) as [Category, string][];
-// Tonos para el ícono de letra (servicios sin logo): escala de grises acorde a la paleta.
-const COLORS = ['#09090B', '#27272A', '#3F3F46', '#52525B', '#71717A', '#A1A1AA'];
 
 const PAYMENT_METHODS: { key: PaymentMethod; label: string; icon: IoniconName }[] = [
-  { key: 'credit_card',   label: 'Crédito',       icon: 'card-outline' },
-  { key: 'debit_card',    label: 'Débito',        icon: 'card' },
-  { key: 'paypal',        label: 'PayPal',        icon: 'logo-paypal' },
-  { key: 'bank_transfer', label: 'Transferencia', icon: 'swap-horizontal-outline' },
-  { key: 'cash',          label: 'Efectivo',      icon: 'cash-outline' },
-  { key: 'other',         label: 'Otro',          icon: 'ellipsis-horizontal' },
+  { key: 'credit_card',   label: 'Tarjeta de crédito', icon: 'card-outline' },
+  { key: 'debit_card',    label: 'Tarjeta de débito',  icon: 'card' },
+  { key: 'paypal',        label: 'PayPal',             icon: 'logo-paypal' },
+  { key: 'bank_transfer', label: 'Transferencia',      icon: 'swap-horizontal-outline' },
+  { key: 'cash',          label: 'Efectivo',           icon: 'cash-outline' },
+  { key: 'other',         label: 'Otro',               icon: 'ellipsis-horizontal' },
 ];
 
 function defaultRenewal() {
@@ -75,7 +73,8 @@ export default function NewSubscriptionScreen() {
   const [billing, setBilling] = useState<BillingCycle>('monthly');
   const [renewal, setRenewal] = useState(defaultRenewal());
   const [category, setCategory] = useState<Category>('entertainment');
-  const [color, setColor] = useState(COLORS[2]);
+  const [color, setColor] = useState<string>(identityColors[0]);
+  const [icon, setIcon] = useState<string | undefined>(undefined);
   const [remind, setRemind] = useState(true);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('credit_card');
   const [description, setDescription] = useState('');
@@ -101,6 +100,7 @@ export default function NewSubscriptionScreen() {
       setRenewal(existingSub.next_renewal);
       setCategory(existingSub.category);
       setColor(existingSub.color);
+      setIcon(existingSub.icon);
       setRemind(existingSub.remind_me === 1);
       setPaymentMethod(existingSub.payment_method);
       setDescription(existingSub.description ?? '');
@@ -134,7 +134,7 @@ export default function NewSubscriptionScreen() {
     try {
       const data = {
         name: name.trim(), price: priceNum, billing_cycle: billing,
-        next_renewal: renewal, category, color,
+        next_renewal: renewal, category, color, icon,
         remind_me: remind ? 1 : 0,
         payment_method: paymentMethod,
         description: description.trim() || undefined,
@@ -161,8 +161,7 @@ export default function NewSubscriptionScreen() {
   // ── Paso 1: catálogo ──────────────────────────────────────────────────────
   if (mode === 'catalog') {
     return (
-      <>
-        <Stack.Screen options={{ title: 'Nueva suscripción' }} />
+      <View style={{ flex: 1 }}>
         <CatalogBrowser
           bottomInset={insets.bottom + 24}
           header={
@@ -187,7 +186,8 @@ export default function NewSubscriptionScreen() {
             setMode('form');
           }}
         />
-      </>
+        <StackHeader title="Nueva suscripción" onBack={() => router.back()} />
+      </View>
     );
   }
 
@@ -195,9 +195,9 @@ export default function NewSubscriptionScreen() {
   const priceNum = parseFloat(price.replace(',', '.')) || 0;
 
   return (
-    <>
-      <Stack.Screen options={{ title: isEdit ? 'Editar suscripción' : 'Nueva suscripción' }} />
-      <ScreenBackground scene="neutral" />
+    <View style={{ flex: 1 }}>
+      <ScreenBackground scene="neutral" tint={color} />
+      <StackHeader title={isEdit ? 'Editar suscripción' : 'Nueva suscripción'} onBack={() => router.back()} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
           style={{ flex: 1 }}
@@ -206,9 +206,7 @@ export default function NewSubscriptionScreen() {
         >
           {/* Vista previa en vivo */}
           <View style={[s.preview, { backgroundColor: colors.surface }]}>
-            {name
-              ? <SubIcon name={name} color={color} size={64} borderRadius={32} />
-              : <View style={[s.previewPh, { backgroundColor: color }]}><Ionicons name="sparkles" size={26} color="#fff" /></View>}
+            <SubIcon name={name || '?'} color={color} icon={icon} size={64} borderRadius={32} />
             <View style={{ flex: 1 }}>
               <Text style={[s.previewName, { color: colors.text }]} numberOfLines={1}>{name || 'Nombre del servicio'}</Text>
               <Text style={[s.previewPrice, { color: colors.text }]}>
@@ -291,12 +289,30 @@ export default function NewSubscriptionScreen() {
             options={CATEGORIES.map(([key, label]) => ({ key, label }))}
           />
 
+          {/* Ícono */}
+          <Label text="Ícono" hint="Se usa si el servicio no tiene logo reconocido" />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.iconsRow}>
+            {identityIcons.map(ic => {
+              const active = icon === ic;
+              return (
+                <Pressable
+                  key={ic}
+                  onPress={() => setIcon(active ? undefined : ic)}
+                  accessibilityLabel={`Ícono ${ic}`}
+                  style={[s.iconSwatch, { backgroundColor: active ? color : colors.surface }]}
+                >
+                  <Ionicons name={ic as IoniconName} size={20} color={active ? '#fff' : colors.subtext} />
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
           {/* Color */}
           <Label text="Color" />
           <View style={s.colors}>
-            {COLORS.map(c => (
+            {identityColors.map(c => (
               <Pressable key={c} onPress={() => setColor(c)} accessibilityLabel={`Color ${c}`}
-                style={[s.swatch, { backgroundColor: c }, color === c && { borderColor: colors.bg, transform: [{ scale: 1.12 }] }]}>
+                style={[s.swatch, { backgroundColor: c }, color === c && { borderColor: colors.text, transform: [{ scale: 1.12 }] }]}>
                 {color === c && <Ionicons name="checkmark" size={16} color="#fff" />}
               </Pressable>
             ))}
@@ -322,8 +338,8 @@ export default function NewSubscriptionScreen() {
               return (
                 <PressableScale key={pm.key} onPress={() => setPaymentMethod(pm.key)} style={s.pmCell}>
                   <View style={[s.pm, active ? { backgroundColor: colors.ink } : { backgroundColor: colors.surface }]}>
-                    <Ionicons name={pm.icon} size={20} color={active ? colors.onInk : colors.subtext} />
-                    <Text style={[s.pmLabel, { color: active ? colors.onInk : colors.text }]} numberOfLines={1}>{pm.label}</Text>
+                    <Ionicons name={pm.icon} size={18} color={active ? colors.onInk : colors.subtext} />
+                    <Text style={[s.pmLabel, { color: active ? colors.onInk : colors.text }]} numberOfLines={2}>{pm.label}</Text>
                   </View>
                 </PressableScale>
               );
@@ -371,53 +387,62 @@ export default function NewSubscriptionScreen() {
           />
         </ScrollView>
       </KeyboardAvoidingView>
-    </>
+    </View>
   );
 }
 
-function Label({ text }: { text: string }) {
+function Label({ text, hint }: { text: string; hint?: string }) {
   const { colors } = useTheme();
-  return <Text style={[s.label, { color: colors.text }]}>{text}</Text>;
+  return (
+    <View style={s.labelWrap}>
+      <Text style={[s.label, { color: colors.text }]}>{text}</Text>
+      {hint && <Text style={[s.labelHint, { color: colors.subtext }]}>{hint}</Text>}
+    </View>
+  );
 }
 
 const s = StyleSheet.create({
-  customWrap: { marginHorizontal: spacing.screen, marginTop: 12 },
+  customWrap: { marginHorizontal: spacing.screen, marginTop: 4 },
   custom: { flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: radius.lg, padding: 16 },
   customIcon: { width: 44, height: 44, borderRadius: 22, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  customTitle: { fontSize: 17, fontWeight: '900' },
-  customSub: { opacity: 0.75, fontSize: 12, fontWeight: '600', marginTop: 2 },
+  customTitle: { fontSize: 17, fontWeight: '800' },
+  customSub: { opacity: 0.75, fontSize: 12, fontWeight: '500', marginTop: 2 },
 
   preview: { flexDirection: 'row', alignItems: 'center', gap: 16, marginHorizontal: spacing.screen, marginTop: 16, borderRadius: radius.lg, padding: 18 },
-  previewPh: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center' },
-  previewName: { fontSize: 20, fontWeight: '900', letterSpacing: -0.4 },
-  previewPrice: { fontSize: 28, fontWeight: '900', letterSpacing: -0.8, marginTop: 2 },
-  previewCycle: { fontSize: 14, fontWeight: '700' },
-  previewHint: { fontSize: 12, fontWeight: '800', marginTop: 2 },
+  previewName: { fontSize: 19, fontWeight: '700', letterSpacing: -0.4 },
+  previewPrice: { fontSize: 27, fontWeight: '800', letterSpacing: -0.8, marginTop: 2 },
+  previewCycle: { fontSize: 14, fontWeight: '400' },
+  previewHint: { fontSize: 12, fontWeight: '600', marginTop: 2 },
 
-  label: { fontSize: 15, fontWeight: '800', marginHorizontal: spacing.screen, marginTop: 24, marginBottom: 10 },
+  labelWrap: { marginHorizontal: spacing.screen, marginTop: 24, marginBottom: 10 },
+  label: { fontSize: 14, fontWeight: '700' },
+  labelHint: { fontSize: 12, fontWeight: '400', marginTop: 2 },
   field: { flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: spacing.screen, borderRadius: radius.md, paddingHorizontal: 16, minHeight: 54 },
-  input: { flex: 1, fontSize: 16, fontWeight: '700', paddingVertical: 14 },
+  input: { flex: 1, fontSize: 16, fontWeight: '500', paddingVertical: 14 },
 
   priceCard: { flexDirection: 'row', alignItems: 'center', gap: 6, marginHorizontal: spacing.screen, borderRadius: radius.md, paddingHorizontal: 18, paddingVertical: 10 },
-  dollar: { fontSize: 28, fontWeight: '800' },
-  priceInput: { flex: 1, fontSize: 40, fontWeight: '900', letterSpacing: -1.2, paddingVertical: 0 },
-  mxn: { fontSize: 14, fontWeight: '800' },
+  dollar: { fontSize: 28, fontWeight: '700' },
+  priceInput: { flex: 1, fontSize: 40, fontWeight: '800', letterSpacing: -1.2, paddingVertical: 0 },
+  mxn: { fontSize: 13, fontWeight: '600' },
 
   picker: { marginHorizontal: spacing.screen, marginTop: 10, borderRadius: radius.md, padding: 8 },
   pickerDone: { alignItems: 'flex-end', padding: 8 },
+
+  iconsRow: { paddingHorizontal: spacing.screen, gap: 10 },
+  iconSwatch: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
 
   colors: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingHorizontal: spacing.screen },
   swatch: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: 'transparent' },
 
   toggle: { flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: spacing.screen, marginTop: 24, borderRadius: radius.md, padding: 14 },
   toggleIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
-  toggleSub: { fontSize: 12, fontWeight: '600', marginTop: 2 },
+  toggleSub: { fontSize: 12, fontWeight: '400', marginTop: 2 },
 
   pmGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: spacing.screen - 5 },
-  pmCell: { width: '33.333%', padding: 5 },
-  pm: { borderRadius: radius.md, paddingVertical: 14, alignItems: 'center', gap: 6 },
-  pmLabel: { fontSize: 12, fontWeight: '800' },
+  pmCell: { width: '50%', padding: 5 },
+  pm: { flexDirection: 'row', alignItems: 'center', borderRadius: radius.md, paddingVertical: 12, paddingHorizontal: 12, gap: 8 },
+  pmLabel: { flex: 1, fontSize: 13, fontWeight: '600' },
 
   notes: { alignItems: 'flex-start' },
-  notesInput: { flex: 1, fontSize: 15, fontWeight: '600', minHeight: 90, paddingVertical: 14, lineHeight: 21 },
+  notesInput: { flex: 1, fontSize: 15, fontWeight: '400', minHeight: 90, paddingVertical: 14, lineHeight: 21 },
 });

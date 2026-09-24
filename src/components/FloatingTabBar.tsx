@@ -64,7 +64,7 @@ function TabItem({ name, focused, onPress }: { name: (typeof ORDER)[number]; foc
         <Ionicons name={focused ? meta.iconActive : meta.icon} size={22} color={focused ? colors.text : colors.subtext} />
       </Animated.View>
       <Animated.View style={labelStyle}>
-        <Text style={[s.label, { color: focused ? colors.text : colors.subtext, fontWeight: focused ? '700' : '600' }]} numberOfLines={1}>
+        <Text style={[s.label, { color: focused ? colors.text : colors.subtext, fontWeight: focused ? '700' : '500' }]} numberOfLines={1}>
           {meta.label}
         </Text>
       </Animated.View>

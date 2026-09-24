@@ -1,14 +1,17 @@
 import React, { createContext, useContext } from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
+import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   interpolate, Extrapolation, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue,
   withSpring, type SharedValue,
 } from 'react-native-reanimated';
 import { useTheme } from '../../hooks/useTheme';
-import { spring } from '../../theme/motion';
+import { spring, tapHaptic } from '../../theme/motion';
 import { spacing, type } from '../../theme/tokens';
+import { Glass } from './glass';
+import { PressableScale } from './primitives';
 
 /**
  * Estado compartido entre el scroll de las pantallas y la "chrome" (tab bar).
@@ -127,8 +130,55 @@ const s = StyleSheet.create({
   largeRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: spacing.screen, paddingTop: 4, paddingBottom: 14 },
 });
 
-/** Alto del header nativo transparente del Stack (detalle, alta, catálogo). */
+export const STACK_BTN = 40;
+
+/**
+ * Encabezado propio para pantallas del Stack (Detalle, Alta, Catálogo).
+ *
+ * No usamos el header nativo: su transparencia + blur depende de opciones de
+ * `react-native-screens` que no se comportan igual en todas las versiones de
+ * iOS, y en la práctica dejaban una franja sólida que tapaba el degradado de
+ * fondo. Este header vive dentro de la pantalla, así que el degradado siempre
+ * se ve completo hasta arriba.
+ */
+export function StackHeader({
+  title, onBack, right,
+}: {
+  title?: string;
+  /** Si se omite, no se muestra botón de regreso (p. ej. dentro de un flujo interno). */
+  onBack?: () => void;
+  right?: React.ReactNode;
+}) {
+  const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
+  return (
+    <View style={[sh.row, { paddingTop: insets.top + 10 }]} pointerEvents="box-none">
+      {onBack ? (
+        <PressableScale onPress={() => { tapHaptic(); onBack(); }} scaleTo={0.88} accessibilityRole="button" accessibilityLabel="Regresar">
+          <Glass radius={STACK_BTN / 2} interactive>
+            <View style={sh.btn}><Ionicons name="chevron-back" size={20} color={colors.text} /></View>
+          </Glass>
+        </PressableScale>
+      ) : <View style={sh.btn} />}
+      {title ? (
+        <Text style={[type.h3, { color: colors.text, flex: 1, textAlign: 'center' }]} numberOfLines={1}>{title}</Text>
+      ) : <View style={{ flex: 1 }} />}
+      {right ?? <View style={sh.btn} />}
+    </View>
+  );
+}
+
+/** Alto del header propio (`StackHeader`), para el padding del contenido. */
 export function useStackHeaderSpace(): number {
   const insets = useSafeAreaInsets();
-  return insets.top + (Platform.OS === 'ios' ? 44 : Platform.OS === 'android' ? 56 : 64);
+  return insets.top + 10 + STACK_BTN + 12;
 }
+
+const sh = StyleSheet.create({
+  row: {
+    position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10,
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: spacing.screen - 4, paddingBottom: 12,
+  },
+  btn: { width: STACK_BTN, height: STACK_BTN, alignItems: 'center', justifyContent: 'center' },
+});

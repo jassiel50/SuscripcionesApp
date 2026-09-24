@@ -73,5 +73,5 @@ const s = StyleSheet.create({
   input: { flex: 1, fontSize: 36, fontWeight: '900', letterSpacing: -1, paddingVertical: 0 },
   presets: { flexDirection: 'row', gap: 8, marginVertical: 18 },
   preset: { flex: 1, borderWidth: 1.5, borderRadius: radius.pill, paddingVertical: 9, alignItems: 'center' },
-  presetText: { fontSize: 14, fontWeight: '800' },
+  presetText: { fontSize: 14, fontWeight: '700' },
 });

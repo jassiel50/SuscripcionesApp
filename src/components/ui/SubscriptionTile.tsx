@@ -25,7 +25,7 @@ export function SubscriptionRow({ sub, onPress, dateLabel, inset }: { sub: Subsc
   const urgent = days <= 3;
   return (
     <PressableScale onPress={onPress} style={[r.row, inset != null && { paddingHorizontal: inset }]} accessibilityRole="button" accessibilityLabel={`${sub.name}, ${money(sub.price)}`}>
-      <SubIcon name={sub.name} color={sub.color} size={52} borderRadius={26} />
+      <SubIcon name={sub.name} color={sub.color} icon={sub.icon} size={52} borderRadius={26} />
       <View style={{ flex: 1, gap: 3 }}>
         <Text style={[type.h3, { color: colors.text }]} numberOfLines={1}>{sub.name}</Text>
         <Text style={[r.meta, { color: colors.subtext }]} numberOfLines={1}>
@@ -56,7 +56,7 @@ export function UpcomingTile({ sub, onPress }: { sub: Subscription; onPress: () 
   return (
     <PressableScale onPress={onPress} style={[r.tile, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]} accessibilityRole="button">
       <View style={r.tileTop}>
-        <SubIcon name={sub.name} color={sub.color} size={40} borderRadius={20} />
+        <SubIcon name={sub.name} color={sub.color} icon={sub.icon} size={40} borderRadius={20} />
         <View style={{ flex: 1 }}>
           <Text style={[r.tileName, { color: colors.text }]} numberOfLines={1}>{sub.name}</Text>
           <Text style={[r.tileSub, { color: colors.subtext }]} numberOfLines={1}>{sub.billing_cycle === 'monthly' ? 'Mensual' : 'Anual'}</Text>
@@ -105,7 +105,7 @@ export function FeaturedSubscriptionCard({
             {int}<Text style={r.featuredDec}>.{dec}</Text>
           </Text>
           <View style={[r.bigLogo, { backgroundColor: colors.bg }]}>
-            <SubIcon name={sub.name} color={sub.color} size={84} borderRadius={42} />
+            <SubIcon name={sub.name} color={sub.color} icon={sub.icon} size={84} borderRadius={42} />
           </View>
         </View>
       </NotchCard>
@@ -115,23 +115,23 @@ export function FeaturedSubscriptionCard({
 
 const r = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: spacing.screen, paddingVertical: 10 },
-  meta: { fontSize: 13, fontWeight: '600' },
+  meta: { fontSize: 13, fontWeight: '500' },
   price: { fontSize: 16, fontWeight: '900', letterSpacing: -0.3 },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.xs },
   chipText: { fontSize: 11, fontWeight: '800' },
 
   tile: { width: 168, borderRadius: radius.lg, padding: 14, gap: 10, borderWidth: StyleSheet.hairlineWidth },
   tileTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  tileName: { fontSize: 15, fontWeight: '900', letterSpacing: -0.2 },
-  tileSub: { fontSize: 11, fontWeight: '700' },
+  tileName: { fontSize: 15, fontWeight: '700', letterSpacing: -0.2 },
+  tileSub: { fontSize: 11, fontWeight: '500' },
   tilePrice: { fontSize: 20, fontWeight: '900', letterSpacing: -0.5 },
   tileDays: { fontSize: 12, fontWeight: '800' },
 
   featured: { marginHorizontal: spacing.screen, padding: 22, paddingBottom: 18 },
   badgeNum: { fontSize: 22, fontWeight: '900', lineHeight: 24 },
-  badgeUnit: { opacity: 0.85, fontSize: 10, fontWeight: '800', marginTop: -2 },
+  badgeUnit: { opacity: 0.85, fontSize: 10, fontWeight: '600', marginTop: -2 },
   featuredName: { fontSize: 34, fontWeight: '900', letterSpacing: -1, marginTop: 14, lineHeight: 38 },
-  featuredDesc: { fontSize: 14, fontWeight: '700', lineHeight: 20, marginTop: 12, maxWidth: '78%' },
+  featuredDesc: { fontSize: 14, fontWeight: '500', lineHeight: 20, marginTop: 12, maxWidth: '78%' },
   featuredBottom: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 14 },
   featuredPrice: { fontSize: 34, fontWeight: '900', letterSpacing: -1 },
   featuredDec: { fontSize: 18, fontWeight: '800' },

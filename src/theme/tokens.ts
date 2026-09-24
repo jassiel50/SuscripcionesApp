@@ -186,11 +186,33 @@ export const type = {
   h1:       { fontFamily, fontSize: 24, fontWeight: '800' as const, letterSpacing: -0.5 },
   h2:       { fontFamily, fontSize: 19, fontWeight: '700' as const, letterSpacing: -0.3 },
   h3:       { fontFamily, fontSize: 16, fontWeight: '700' as const, letterSpacing: -0.2 },
-  body:     { fontFamily, fontSize: 15, fontWeight: '500' as const },
+  body:     { fontFamily, fontSize: 15, fontWeight: '400' as const },
   bodyBold: { fontFamily, fontSize: 15, fontWeight: '700' as const },
-  caption:  { fontFamily, fontSize: 13, fontWeight: '600' as const },
-  micro:    { fontFamily, fontSize: 11, fontWeight: '700' as const, letterSpacing: 0.2 },
+  /** Texto secundario (subtítulos, ayudas, footers). Nunca en negrita. */
+  caption:  { fontFamily, fontSize: 13, fontWeight: '500' as const },
+  /** Etiqueta pequeña con un poco de peso (badges, headers de sección). */
+  micro:    { fontFamily, fontSize: 11, fontWeight: '600' as const, letterSpacing: 0.2 },
 } as const;
+
+/**
+ * Colores de identidad: para el color/ícono elegido a mano por el usuario
+ * (servicios sin logo de marca reconocido). Es la misma paleta vívida usada en
+ * gráficas, así que un color elegido aquí también se ve bien en Estadísticas.
+ * Independiente de claro/oscuro: son colores saturados que funcionan en ambos.
+ */
+export const identityColors = [
+  '#6366F1', '#EC4899', '#F59E0B', '#10B981',
+  '#06B6D4', '#8B5CF6', '#F97316', '#84CC16',
+  '#DC2626', '#0EA5E9', '#09090B', '#71717A',
+] as const;
+
+/** Íconos disponibles para representar una suscripción sin logo reconocido. */
+export const identityIcons = [
+  'sparkles-outline', 'film-outline', 'musical-notes-outline', 'game-controller-outline',
+  'cloud-outline', 'cart-outline', 'barbell-outline', 'book-outline',
+  'briefcase-outline', 'heart-outline', 'wifi-outline', 'card-outline',
+  'home-outline', 'car-outline', 'restaurant-outline', 'ellipsis-horizontal-outline',
+] as const;
 
 /** Sombra suave "flotante" (tab bar, FAB, botones). */
 export function floatShadow(color: string, strength = 1) {
