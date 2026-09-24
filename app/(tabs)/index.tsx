@@ -11,8 +11,8 @@ import { useAuth } from '../../src/hooks/useAuth';
 import { useTheme } from '../../src/hooks/useTheme';
 import BudgetModal from '../../src/components/BudgetModal';
 import {
-  AnimatedNumber, EmptyState, FeaturedSubscriptionCard, FilterPills, Glass, IconButton, PressableScale,
-  ProgressBar, ScreenBackground, SearchField, SectionHeader, Skeleton, SubscriptionRow, TOP_BAR_H, TopBar,
+  AnimatedNumber, AreaChart, EmptyState, FeaturedSubscriptionCard, FilterPills, Glass, IconButton, PressableScale,
+  ProgressBar, ScreenBackground, SectionHeader, Skeleton, SubscriptionRow, TOP_BAR_H, TopBar,
   UpcomingTile, useScreenScroll, useTabBarSpace, type IoniconName,
 } from '../../src/components/ui';
 import { daysUntilRenewal, greeting, totalForMonth } from '../../src/utils/dates';
@@ -32,7 +32,6 @@ export default function HomeScreen() {
   const bottom = useTabBarSpace();
   const { scrollY, onScroll } = useScreenScroll();
 
-  const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
   const [budgetOpen, setBudgetOpen] = useState(false);
 
@@ -41,30 +40,31 @@ export default function HomeScreen() {
   const initials = name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() || 'S';
   const open = (sub: Subscription) => router.push(`/subscription/${sub.id}`);
 
-  const { next7, thisMonth } = useMemo(() => {
+  const { next7, thisMonth, trend } = useMemo(() => {
     const now = new Date();
+    const months = Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+      return totalForMonth(subscriptions, d.getFullYear(), d.getMonth());
+    });
     return {
       next7: subscriptions.filter(sb => daysUntilRenewal(sb) <= 7).reduce((t, sb) => t + sb.price, 0),
-      thisMonth: totalForMonth(subscriptions, now.getFullYear(), now.getMonth()),
+      thisMonth: months[0],
+      trend: months,
     };
   }, [subscriptions]);
 
   const featured = subscriptions[0];
   const upcoming = useMemo(() => subscriptions.slice(1).filter(s => daysUntilRenewal(s) <= 14), [subscriptions]);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return subscriptions.filter(s =>
-      (filter === 'all' || s.billing_cycle === filter) &&
-      (!q || s.name.toLowerCase().includes(q) || (s.description ?? '').toLowerCase().includes(q)),
-    );
-  }, [subscriptions, filter, query]);
+  const filtered = useMemo(
+    () => subscriptions.filter(s => filter === 'all' || s.billing_cycle === filter),
+    [subscriptions, filter],
+  );
 
   const pct = budget > 0 ? monthlyTotal / budget : 0;
   const over = pct > 1;
   const level = over ? colors.chartBad : pct > 0.8 ? colors.chartWarn : colors.chartGood;
   const urgentCount = subscriptions.filter(s => daysUntilRenewal(s) <= 3).length;
-  const searching = query.trim().length > 0;
 
   // Parallax del saldo: se desvanece y encoge al hacer scroll (como Revolut)
   const heroStyle = useAnimatedStyle(() => ({
@@ -75,8 +75,8 @@ export default function HomeScreen() {
     ],
   }));
 
-  const actions: { icon: IoniconName; label: string; onPress: () => void }[] = [
-    { icon: 'add', label: 'Agregar', onPress: () => router.push('/subscription/new') },
+  const actions: { icon: IoniconName; label: string; onPress: () => void; primary?: boolean }[] = [
+    { icon: 'add', label: 'Agregar', onPress: () => router.push('/subscription/new'), primary: true },
     { icon: 'calendar-outline', label: 'Calendario', onPress: () => router.push('/calendar') },
     { icon: 'wallet-outline', label: 'Presupuesto', onPress: () => setBudgetOpen(true) },
     { icon: 'compass-outline', label: 'Explorar', onPress: () => router.push('/catalog') },
@@ -89,6 +89,7 @@ export default function HomeScreen() {
 
       <TopBar
         scrollY={scrollY}
+        title="Inicio"
         left={
           <PressableScale onPress={() => router.push('/profile')} scaleTo={0.88} accessibilityLabel="Perfil">
             <Glass radius={22} interactive>
@@ -104,86 +105,97 @@ export default function HomeScreen() {
             accessibilityLabel={urgentCount > 0 ? `${urgentCount} cobros próximos` : 'Calendario de cobros'}
           />
         }
-      >
-        <SearchField compact placeholder="Buscar" value={query} onChangeText={setQuery} onClear={() => setQuery('')} />
-      </TopBar>
+      />
 
       <Animated.ScrollView
         onScroll={onScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ paddingTop: insets.top + TOP_BAR_H + 6, paddingBottom: bottom }}
       >
-        {!searching && (
-          <>
-            {/* ── Saldo centrado sobre el degradado ── */}
-            <Animated.View style={[s.hero, heroStyle]}>
-              <Text style={[s.heroLabel, { color: colors.subtext }]}>{greeting()}{firstName ? `, ${firstName}` : ''} · Gasto mensual</Text>
-              {loading
-                ? <Skeleton width={200} height={52} radius={14} style={{ marginVertical: 6 }} />
-                : <AnimatedNumber value={monthlyTotal} format={money} style={[s.heroAmount, { color: colors.text }]} />}
-              <PressableScale onPress={() => setBudgetOpen(true)} scaleTo={0.94} accessibilityLabel="Editar presupuesto">
-                <Glass radius={999}>
-                  <View style={s.budgetChip}>
-                    <Text style={[s.budgetText, { color: over ? colors.urgent : colors.text }]}>
-                      {Math.round(pct * 100)}% de {moneyShort(budget)}
-                    </Text>
-                    <Ionicons name="chevron-down" size={13} color={colors.subtext} />
-                  </View>
-                </Glass>
-              </PressableScale>
-              <ProgressBar value={pct} colors={level} height={6} delay={400} style={s.heroBar} />
-            </Animated.View>
+        {/* ── Saldo centrado sobre el degradado, con curva a color ── */}
+        <Animated.View style={[s.hero, heroStyle]}>
+          <Text style={[s.heroLabel, { color: colors.subtext }]}>{greeting()}{firstName ? `, ${firstName}` : ''} · Gasto mensual</Text>
+          {loading
+            ? <Skeleton width={200} height={52} radius={14} style={{ marginVertical: 6 }} />
+            : <AnimatedNumber value={monthlyTotal} format={money} style={[s.heroAmount, { color: colors.text }]} />}
+          <PressableScale onPress={() => setBudgetOpen(true)} scaleTo={0.94} accessibilityLabel="Editar presupuesto">
+            <Glass radius={999}>
+              <View style={s.budgetChip}>
+                <Text style={[s.budgetText, { color: over ? colors.urgent : colors.text }]}>
+                  {Math.round(pct * 100)}% de {moneyShort(budget)}
+                </Text>
+                <Ionicons name="chevron-down" size={13} color={colors.subtext} />
+              </View>
+            </Glass>
+          </PressableScale>
+          <ProgressBar value={pct} colors={level} height={6} delay={400} style={s.heroBar} />
+          {monthlyTotal > 0 && (
+            <View style={s.heroChart}>
+              <AreaChart id="home-trend" data={trend} height={58} />
+            </View>
+          )}
+        </Animated.View>
 
-            {/* ── Acciones rápidas (botones redondos de vidrio) ── */}
-            <Animated.View entering={enter(0)} style={s.actions}>
-              {actions.map(a => (
-                <PressableScale key={a.label} onPress={a.onPress} scaleTo={0.9} style={s.action} accessibilityLabel={a.label}>
-                  <Glass radius={26} interactive>
-                    <View style={s.actionIcon}><Ionicons name={a.icon} size={22} color={colors.text} /></View>
-                  </Glass>
-                  <Text style={[s.actionLabel, { color: colors.text }]}>{a.label}</Text>
-                </PressableScale>
-              ))}
-            </Animated.View>
-
-            {/* ── Resumen: 3 cifras ── */}
-            <Animated.View entering={enter(1)} style={s.summary}>
-              {[
-                { label: 'Esta semana', value: next7 },
-                { label: 'Este mes', value: thisMonth },
-                { label: 'Al año', value: monthlyTotal * 12 },
-              ].map(item => (
-                <View key={item.label} style={[s.summaryItem, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
-                  <AnimatedNumber value={item.value} format={moneyShort} style={[s.summaryValue, { color: colors.text }]} />
-                  <Text style={[s.summaryLabel, { color: colors.subtext }]}>{item.label}</Text>
+        {/* ── Acciones rápidas (botones redondos de vidrio) ── */}
+        <Animated.View entering={enter(0)} style={s.actions}>
+          {actions.map(a => (
+            <PressableScale key={a.label} onPress={a.onPress} scaleTo={0.9} style={s.action} accessibilityLabel={a.label}>
+              {a.primary ? (
+                <View style={[s.actionIcon, { backgroundColor: colors.ink }]}>
+                  <Ionicons name={a.icon} size={22} color={colors.onInk} />
                 </View>
-              ))}
-            </Animated.View>
+              ) : (
+                <Glass radius={26} interactive>
+                  <View style={s.actionIcon}><Ionicons name={a.icon} size={22} color={colors.text} /></View>
+                </Glass>
+              )}
+              <Text
+                style={[s.actionLabel, { color: colors.text }]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.8}
+              >
+                {a.label}
+              </Text>
+            </PressableScale>
+          ))}
+        </Animated.View>
 
-            {featured && (
-              <Animated.View entering={enter(2)}>
-                <SectionHeader title="Próximo cobro" action="Calendario" onAction={() => router.push('/calendar')} />
-                <FeaturedSubscriptionCard sub={featured} onPress={() => open(featured)} />
-              </Animated.View>
-            )}
+        {/* ── Resumen: 3 cifras ── */}
+        <Animated.View entering={enter(1)} style={s.summary}>
+          {[
+            { label: 'Esta semana', value: next7 },
+            { label: 'Este mes', value: thisMonth },
+            { label: 'Al año', value: monthlyTotal * 12 },
+          ].map(item => (
+            <View key={item.label} style={[s.summaryItem, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+              <AnimatedNumber value={item.value} format={moneyShort} style={[s.summaryValue, { color: colors.text }]} />
+              <Text style={[s.summaryLabel, { color: colors.subtext }]}>{item.label}</Text>
+            </View>
+          ))}
+        </Animated.View>
 
-            {upcoming.length > 0 && (
-              <Animated.View entering={enter(3)}>
-                <SectionHeader title="Próximos 14 días" />
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.carousel} decelerationRate="fast" snapToInterval={180}>
-                  {upcoming.map(sub => <UpcomingTile key={sub.id} sub={sub} onPress={() => open(sub)} />)}
-                </ScrollView>
-              </Animated.View>
-            )}
-          </>
+        {featured && (
+          <Animated.View entering={enter(2)}>
+            <SectionHeader title="Próximo cobro" action="Calendario" onAction={() => router.push('/calendar')} />
+            <FeaturedSubscriptionCard sub={featured} onPress={() => open(featured)} />
+          </Animated.View>
+        )}
+
+        {upcoming.length > 0 && (
+          <Animated.View entering={enter(3)}>
+            <SectionHeader title="Próximos 14 días" />
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.carousel} decelerationRate="fast" snapToInterval={180}>
+              {upcoming.map(sub => <UpcomingTile key={sub.id} sub={sub} onPress={() => open(sub)} />)}
+            </ScrollView>
+          </Animated.View>
         )}
 
         {/* ── Lista con filtros (se reacomoda con animación) ── */}
         {subscriptions.length > 0 && (
           <Animated.View entering={enter(4)}>
-            <SectionHeader title={searching ? 'Resultados' : 'Mis suscripciones'} action={searching ? undefined : 'Estadísticas'} onAction={() => router.push('/explore')} />
+            <SectionHeader title="Mis suscripciones" action="Estadísticas" onAction={() => router.push('/explore')} />
             <FilterPills<Filter>
               value={filter}
               onChange={setFilter}
@@ -200,7 +212,7 @@ export default function HomeScreen() {
                 </Animated.View>
               ))}
               {filtered.length === 0 && (
-                <Text style={[s.noResults, { color: colors.subtext }]}>Nada coincide con tu búsqueda.</Text>
+                <Text style={[s.noResults, { color: colors.subtext }]}>Sin suscripciones en este filtro.</Text>
               )}
             </Animated.View>
           </Animated.View>
@@ -229,24 +241,25 @@ export default function HomeScreen() {
 const s = StyleSheet.create({
   root: { flex: 1 },
   avatar: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 15, fontWeight: '800' },
+  avatarText: { fontSize: 15, fontWeight: '700' },
 
   hero: { alignItems: 'center', paddingTop: 34, paddingBottom: 8, paddingHorizontal: spacing.screen, gap: 10 },
-  heroLabel: { fontSize: 14, fontWeight: '600' },
+  heroLabel: { fontSize: 14, fontWeight: '500' },
   heroAmount: { ...type.display, fontSize: 48, letterSpacing: -1.6 },
   budgetChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 7 },
-  budgetText: { fontSize: 13, fontWeight: '700' },
+  budgetText: { fontSize: 13, fontWeight: '600' },
   heroBar: { width: '62%', marginTop: 4 },
+  heroChart: { width: '100%', marginTop: 14, paddingHorizontal: 8 },
 
-  actions: { flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: spacing.screen - 4, marginTop: 26 },
-  action: { alignItems: 'center', gap: 8, width: 78 },
-  actionIcon: { width: 52, height: 52, alignItems: 'center', justifyContent: 'center' },
-  actionLabel: { fontSize: 12, fontWeight: '600' },
+  actions: { flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: spacing.screen - 8, marginTop: 26 },
+  action: { alignItems: 'center', gap: 8, width: 82 },
+  actionIcon: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
+  actionLabel: { fontSize: 12, fontWeight: '500' },
 
   summary: { flexDirection: 'row', gap: 10, marginHorizontal: spacing.screen, marginTop: 24 },
   summaryItem: { flex: 1, borderRadius: radius.md, paddingVertical: 14, paddingHorizontal: 12, gap: 2, borderWidth: StyleSheet.hairlineWidth },
-  summaryValue: { fontSize: 18, fontWeight: '800', letterSpacing: -0.5 },
-  summaryLabel: { fontSize: 12, fontWeight: '600' },
+  summaryValue: { fontSize: 18, fontWeight: '700', letterSpacing: -0.5 },
+  summaryLabel: { fontSize: 12, fontWeight: '400' },
 
   carousel: { paddingHorizontal: spacing.screen, gap: 12 },
   listCard: { marginHorizontal: spacing.screen, marginTop: 14, borderRadius: radius.lg, paddingVertical: 6, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },

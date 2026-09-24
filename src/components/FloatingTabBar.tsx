@@ -2,23 +2,23 @@ import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
 import Animated, {
   interpolate, useAnimatedStyle, useSharedValue, withSpring,
 } from 'react-native-reanimated';
 import { useTheme } from '../hooks/useTheme';
 import { floatShadow, fontFamily } from '../theme/tokens';
-import { impactHaptic, spring, tapHaptic } from '../theme/motion';
+import { spring, tapHaptic } from '../theme/motion';
 import { Glass } from './ui/glass';
 import { useChrome } from './ui/chrome';
+import SearchSheet from './SearchSheet';
 import type { IoniconName } from './ui/primitives';
 
 /**
  * Tab bar flotante estilo Revolut / iOS 26:
  *  - píldora de vidrio (Liquid Glass real en iOS 26, blur en el resto)
  *  - indicador tipo "píldora" que se desliza con spring entre pestañas
- *  - botón "+" redondo separado a la derecha (acción principal)
+ *  - botón de búsqueda redondo separado a la derecha (abre SearchSheet)
  *  - al hacer scroll hacia abajo se minimiza (oculta etiquetas y se encoge)
  */
 
@@ -64,7 +64,7 @@ function TabItem({ name, focused, onPress }: { name: (typeof ORDER)[number]; foc
         <Ionicons name={focused ? meta.iconActive : meta.icon} size={22} color={focused ? colors.text : colors.subtext} />
       </Animated.View>
       <Animated.View style={labelStyle}>
-        <Text style={[s.label, { color: focused ? colors.text : colors.subtext, fontWeight: focused ? '700' : '500' }]} numberOfLines={1}>
+        <Text style={[s.label, { color: focused ? colors.text : colors.subtext, fontWeight: focused ? '600' : '500' }]} numberOfLines={1}>
           {meta.label}
         </Text>
       </Animated.View>
@@ -75,9 +75,9 @@ function TabItem({ name, focused, onPress }: { name: (typeof ORDER)[number]; foc
 export default function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const { colors, dark } = useTheme();
-  const router = useRouter();
   const { collapse } = useChrome();
   const [w, setW] = useState(0);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const focusedName = state.routes[state.index]?.name;
   const idx = Math.max(0, ORDER.indexOf(focusedName as (typeof ORDER)[number]));
@@ -124,16 +124,18 @@ export default function FloatingTabBar({ state, navigation }: BottomTabBarProps)
         </View>
 
         <Pressable
-          onPress={() => { impactHaptic(); router.push('/subscription/new'); }}
+          onPress={() => { tapHaptic(); setSearchOpen(true); }}
           accessibilityRole="button"
-          accessibilityLabel="Agregar suscripción"
+          accessibilityLabel="Buscar suscripción"
           style={({ pressed }) => [floatShadow(colors.shadow, dark ? 0.6 : 0.35), { transform: [{ scale: pressed ? 0.9 : 1 }] }]}
         >
           <View style={[s.fab, { backgroundColor: colors.ink }]}>
-            <Ionicons name="add" size={30} color={colors.onInk} />
+            <Ionicons name="search" size={24} color={colors.onInk} />
           </View>
         </Pressable>
       </Animated.View>
+
+      <SearchSheet visible={searchOpen} onClose={() => setSearchOpen(false)} />
     </View>
   );
 }

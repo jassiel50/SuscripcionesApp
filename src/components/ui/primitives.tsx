@@ -309,13 +309,13 @@ const p = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
     borderRadius: radius.pill, paddingVertical: 17, paddingHorizontal: 24,
   },
-  gradBtnText: { fontSize: 16, fontWeight: '800', letterSpacing: -0.2 },
+  gradBtnText: { fontSize: 16, fontWeight: '700', letterSpacing: -0.2 },
 
   pillRow: { paddingHorizontal: spacing.screen, gap: 10 },
   pillRowWrap: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: spacing.screen, gap: 10 },
   pill: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: radius.pill, minWidth: 64, alignItems: 'center' },
   pillActive: { paddingVertical: 11.5, paddingHorizontal: 21.5 },
-  pillText: { fontSize: 15, fontWeight: '800', letterSpacing: -0.2 },
+  pillText: { fontSize: 15, fontWeight: '700', letterSpacing: -0.2 },
 
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.screen, paddingTop: 8, paddingBottom: 16, gap: 12 },
   headerCentered: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.screen - 4, paddingTop: 8, paddingBottom: 16 },
@@ -326,7 +326,7 @@ const p = StyleSheet.create({
   iconBadge: { position: 'absolute', top: 9, right: 10, width: 10, height: 10, borderRadius: 5, borderWidth: 2 },
 
   tag: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.xs },
-  tagText: { fontSize: 12, fontWeight: '800', letterSpacing: 0.1 },
+  tagText: { fontSize: 12, fontWeight: '700', letterSpacing: 0.1 },
 
   search: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, height: 50 },
   searchInput: { flex: 1, fontSize: 16, fontWeight: '500', paddingVertical: 0 },

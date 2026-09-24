@@ -2,6 +2,7 @@ import React, { createContext, useContext } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   interpolate, Extrapolation, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue,
@@ -88,7 +89,13 @@ export function TopBar({
     <View style={[s.bar, { paddingTop: insets.top, height: insets.top + TOP_BAR_H }]} pointerEvents="box-none">
       <Animated.View style={[StyleSheet.absoluteFill, bgStyle]} pointerEvents="none">
         <BlurView intensity={dark ? 50 : 70} tint={dark ? 'systemChromeMaterialDark' : 'systemChromeMaterialLight'} blurMethod="dimezisBlurViewSdk31Plus" style={StyleSheet.absoluteFill} />
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: dark ? 'rgba(5,5,12,0.35)' : 'rgba(255,255,255,0.35)', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.separator }]} />
+        {/* Sin línea divisoria: el tinte se desvanece hacia abajo para fundirse
+            con el degradado de fondo en vez de cortarlo con un borde marcado. */}
+        <LinearGradient
+          colors={dark ? ['rgba(5,5,12,0.42)', 'rgba(5,5,12,0)'] : ['rgba(255,255,255,0.5)', 'rgba(255,255,255,0)']}
+          locations={[0.55, 1]}
+          style={StyleSheet.absoluteFill}
+        />
       </Animated.View>
       <View style={s.row}>
         {left}
