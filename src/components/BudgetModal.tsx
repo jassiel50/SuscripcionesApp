@@ -51,8 +51,8 @@ export default function BudgetModal({ visible, onClose }: { visible: boolean; on
 
           <View style={s.presets}>
             {PRESETS.map(p => (
-              <Pressable key={p} onPress={() => setRaw(String(p))} style={[s.preset, { borderColor: colors.accent }]}>
-                <Text style={[s.presetText, { color: colors.accent }]}>{moneyShort(p)}</Text>
+              <Pressable key={p} onPress={() => setRaw(String(p))} style={[s.preset, { borderColor: colors.vivid[0] }]}>
+                <Text style={[s.presetText, { color: colors.vivid[0] }]}>{moneyShort(p)}</Text>
               </Pressable>
             ))}
           </View>

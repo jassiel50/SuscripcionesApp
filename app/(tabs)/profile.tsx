@@ -25,8 +25,13 @@ import { enter } from '../../src/theme/motion';
 import { moneyShort } from '../../src/utils/format';
 import { radius, spacing, type } from '../../src/theme/tokens';
 
+/** Fondo suave para una insignia de color a partir de su tinte (hex u rgba). */
+function badgeBg(tint: string, fallback: string): string {
+  return tint.startsWith('#') ? tint + '22' : fallback;
+}
+
 type SettingRow = {
-  icon: IoniconName; label: string; value?: string; onPress?: () => void; danger?: boolean; valueTone?: 'ok' | 'warn';
+  icon: IoniconName; label: string; value?: string; onPress?: () => void; danger?: boolean; valueTone?: 'ok' | 'warn'; tint?: string;
 };
 
 export default function ProfileScreen() {
@@ -91,14 +96,14 @@ export default function ProfileScreen() {
 
   const settings: SettingRow[] = [
     {
-      icon: 'notifications-outline', label: 'Notificaciones', onPress: handleNotifications,
+      icon: 'notifications-outline', label: 'Notificaciones', onPress: handleNotifications, tint: colors.vivid[2],
       value: notifStatus === 'granted' ? 'Activadas' : notifStatus === 'denied' ? 'Bloqueadas' : 'Activar',
       valueTone: notifStatus === 'granted' ? 'ok' : 'warn',
     },
-    { icon: 'wallet-outline', label: 'Presupuesto mensual', value: moneyShort(budget), onPress: () => setBudgetOpen(true) },
-    { icon: 'cash-outline', label: 'Moneda', value: 'MXN' },
-    { icon: 'contrast-outline', label: 'Apariencia', value: dark ? 'Oscura (sistema)' : 'Clara (sistema)' },
-    { icon: 'cloud-done-outline', label: 'Sincronización', value: 'Firebase' },
+    { icon: 'wallet-outline', label: 'Presupuesto mensual', value: moneyShort(budget), onPress: () => setBudgetOpen(true), tint: colors.vivid[0] },
+    { icon: 'cash-outline', label: 'Moneda', value: 'MXN', tint: colors.vivid[3] },
+    { icon: 'contrast-outline', label: 'Apariencia', value: dark ? 'Oscura (sistema)' : 'Clara (sistema)', tint: colors.vivid[5] },
+    { icon: 'cloud-done-outline', label: 'Sincronización', value: 'Firebase', tint: colors.vivid[4] },
     { icon: 'log-out-outline', label: 'Cerrar sesión', onPress: handleSignOut, danger: true },
   ];
 
@@ -121,15 +126,15 @@ export default function ProfileScreen() {
             {user?.photoURL
               ? <Image source={{ uri: user.photoURL }} style={[s.avatar, { borderColor: colors.bg }]} />
               : <View style={[s.avatar, s.avatarFallback, { borderColor: colors.bg, backgroundColor: colors.bg }]}>
-                  <Text style={[s.initials, { color: colors.accent }]}>{initials}</Text>
+                  <Text style={[s.initials, { color: colors.vivid[0] }]}>{initials}</Text>
                 </View>}
           </LinearGradient>
           <View style={{ flex: 1, gap: 3 }}>
             <Text style={[type.h2, { color: colors.text }]} numberOfLines={1}>{displayName}</Text>
             {!!email && <Text style={[s.email, { color: colors.subtext }]} numberOfLines={1}>{email}</Text>}
-            <View style={[s.provider, { backgroundColor: colors.accentSoft }]}>
-              <Ionicons name={provider === 'Apple' ? 'logo-apple' : provider === 'Google' ? 'logo-google' : 'mail'} size={11} color={colors.accent} />
-              <Text style={[s.providerText, { color: colors.accent }]}>{provider}</Text>
+            <View style={[s.provider, { backgroundColor: badgeBg(colors.vivid[0], colors.accentSoft) }]}>
+              <Ionicons name={provider === 'Apple' ? 'logo-apple' : provider === 'Google' ? 'logo-google' : 'mail'} size={11} color={colors.vivid[0]} />
+              <Text style={[s.providerText, { color: colors.vivid[0] }]}>{provider}</Text>
             </View>
           </View>
         </Animated.View>
@@ -170,12 +175,12 @@ export default function ProfileScreen() {
                     </Pressable>
                   </View>
                 )}
-                <View style={[s.rowIcon, { backgroundColor: isClabe ? colors.accentSoft : brandIconBg(card.brand, dark) }]}>
-                  {isClabe ? <Ionicons name="swap-horizontal" size={18} color={colors.accent} /> : <BrandSvgIcon brand={card.brand} size={24} />}
+                <View style={[s.rowIcon, { backgroundColor: isClabe ? badgeBg(colors.vivid[0], colors.accentSoft) : brandIconBg(card.brand, dark) }]}>
+                  {isClabe ? <Ionicons name="swap-horizontal" size={18} color={colors.vivid[0]} /> : <BrandSvgIcon brand={card.brand} size={24} />}
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[type.bodyBold, { color: colors.text }]} numberOfLines={1}>{card.alias}</Text>
-                  <Text style={[s.rowSub, { color: isClabe ? colors.accent : colors.subtext }]} numberOfLines={1}>
+                  <Text style={[s.rowSub, { color: isClabe ? colors.vivid[0] : colors.subtext }]} numberOfLines={1}>
                     {isClabe && card.clabe ? card.clabe.replace(/(\d{4})(?=\d)/g, '$1 ') : card.bank}
                   </Text>
                 </View>
@@ -187,9 +192,9 @@ export default function ProfileScreen() {
                     <Ionicons name="trash-outline" size={20} color={colors.urgent} />
                   </Pressable>
                 ) : isClabe && card.clabe ? (
-                  <Pressable onPress={() => copyClabe(card.clabe!)} hitSlop={8} style={[s.copy, { backgroundColor: colors.accentSoft }]}>
-                    <Ionicons name="copy-outline" size={14} color={colors.accent} />
-                    <Text style={[s.copyText, { color: colors.accent }]}>Copiar</Text>
+                  <Pressable onPress={() => copyClabe(card.clabe!)} hitSlop={8} style={[s.copy, { backgroundColor: badgeBg(colors.vivid[0], colors.accentSoft) }]}>
+                    <Ionicons name="copy-outline" size={14} color={colors.vivid[0]} />
+                    <Text style={[s.copyText, { color: colors.vivid[0] }]}>Copiar</Text>
                   </Pressable>
                 ) : (
                   <CardChip card={card} colors={colors} />
@@ -202,10 +207,10 @@ export default function ProfileScreen() {
               onPress={() => setShowCardModal(true)}
               style={[s.row, cards.length > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.separator }]}
             >
-              <View style={[s.rowIcon, { backgroundColor: colors.accentSoft }]}>
-                <Ionicons name="add" size={20} color={colors.accent} />
+              <View style={[s.rowIcon, { backgroundColor: badgeBg(colors.vivid[0], colors.accentSoft) }]}>
+                <Ionicons name="add" size={20} color={colors.vivid[0]} />
               </View>
-              <Text style={[type.bodyBold, { color: colors.accent, flex: 1 }]}>
+              <Text style={[type.bodyBold, { color: colors.vivid[0], flex: 1 }]}>
                 {cards.length === 0 ? 'Agregar tarjeta o CLABE' : 'Agregar otra'}
               </Text>
             </Pressable>
@@ -217,7 +222,7 @@ export default function ProfileScreen() {
         <SectionHeader title="Ajustes" />
         <View style={{ gap: 10, marginHorizontal: spacing.screen }}>
           {settings.map(row => {
-            const tint = row.danger ? colors.urgent : colors.text;
+            const iconTint = row.danger ? colors.urgent : row.tint ?? colors.text;
             return (
               <Pressable
                 key={row.label}
@@ -225,8 +230,10 @@ export default function ProfileScreen() {
                 disabled={!row.onPress}
                 style={({ pressed }) => [s.setting, { backgroundColor: colors.surface, borderColor: colors.cardBorder, opacity: pressed ? 0.7 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] }]}
               >
-                <Ionicons name={row.icon} size={22} color={tint} />
-                <Text style={[s.settingLabel, { color: tint }]}>{row.label}</Text>
+                <View style={[s.settingIcon, { backgroundColor: badgeBg(iconTint, colors.accentSoft) }]}>
+                  <Ionicons name={row.icon} size={19} color={iconTint} />
+                </View>
+                <Text style={[s.settingLabel, { color: row.danger ? colors.urgent : colors.text }]}>{row.label}</Text>
                 {row.value && (
                   <Text style={[s.settingValue, {
                     color: row.valueTone === 'ok' ? colors.success : row.valueTone === 'warn' ? colors.warning : colors.subtext,
@@ -267,7 +274,8 @@ const s = StyleSheet.create({
   copy: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.pill },
   copyText: { fontSize: 12, fontWeight: '700' },
 
-  setting: { flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: radius.md, paddingHorizontal: 18, paddingVertical: 17 , borderWidth: StyleSheet.hairlineWidth },
+  setting: { flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: radius.md, paddingHorizontal: 16, paddingVertical: 14 , borderWidth: StyleSheet.hairlineWidth },
+  settingIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   settingLabel: { flex: 1, fontSize: 16, fontWeight: '600' },
   settingValue: { fontSize: 13, fontWeight: '600' },
   version: { textAlign: 'center', fontSize: 12, fontWeight: '500', marginTop: 24 },

@@ -163,10 +163,10 @@ export default function LoginScreen() {
               Todas tus suscripciones,{'\n'}un solo lugar.
             </Text>
             <View style={s.features}>
-              {([['notifications', 'Recordatorios'], ['pie-chart', 'Estadísticas'], ['calendar', 'Calendario']] as const).map(([icon, label]) => (
-                <View key={label} style={[s.feature, { backgroundColor: colors.surface }]}>
-                  <Ionicons name={icon} size={14} color={colors.ink} />
-                  <Text style={[s.featureText, { color: colors.text }]}>{label}</Text>
+              {([['notifications', 'Recordatorios', 2], ['pie-chart', 'Estadísticas', 5], ['calendar', 'Calendario', 0]] as const).map(([icon, label, vividIdx]) => (
+                <View key={label} style={[s.feature, { backgroundColor: colors.vivid[vividIdx] + '1A' }]}>
+                  <Ionicons name={icon} size={14} color={colors.vivid[vividIdx]} />
+                  <Text style={[s.featureText, { color: colors.vivid[vividIdx] }]}>{label}</Text>
                 </View>
               ))}
             </View>
@@ -182,9 +182,9 @@ export default function LoginScreen() {
             )}
 
             {resetSent && (
-              <View style={[s.errorBox, { backgroundColor: colors.surface, borderColor: colors.ink }]}>
-                <Ionicons name="checkmark-circle-outline" size={16} color={colors.ink} />
-                <Text style={[s.errorText, { color: colors.ink }]}>
+              <View style={[s.errorBox, { backgroundColor: colors.successSoft, borderColor: colors.success }]}>
+                <Ionicons name="checkmark-circle-outline" size={16} color={colors.success} />
+                <Text style={[s.errorText, { color: colors.success }]}>
                   Correo de recuperación enviado
                 </Text>
               </View>
@@ -256,7 +256,7 @@ export default function LoginScreen() {
                       style={[s.modeBtn, emailMode === m && { backgroundColor: colors.bg }]}
                       onPress={() => { setEmailMode(m); setError(null); setResetSent(false); }}
                     >
-                      <Text style={[s.modeBtnText, { color: emailMode === m ? colors.accent : colors.subtext }]}>
+                      <Text style={[s.modeBtnText, { color: emailMode === m ? colors.vivid[0] : colors.subtext }]}>
                         {m === 'login' ? 'Iniciar sesión' : 'Registrarse'}
                       </Text>
                     </TouchableOpacity>
@@ -319,7 +319,7 @@ export default function LoginScreen() {
                 {/* Forgot password */}
                 {emailMode === 'login' && (
                   <TouchableOpacity onPress={handleForgotPassword} style={s.forgotBtn}>
-                    <Text style={[s.forgotText, { color: colors.text }]}>
+                    <Text style={[s.forgotText, { color: colors.vivid[0] }]}>
                       ¿Olvidaste tu contraseña?
                     </Text>
                   </TouchableOpacity>

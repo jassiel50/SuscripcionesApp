@@ -18,7 +18,12 @@ import { SubIcon, brandColor } from '../../src/utils/brandIcons';
 import { daysUntilRenewal, monthlyEquivalent, nextRenewalDate, relativeDayLabel } from '../../src/utils/dates';
 import { money, moneyParts, moneyShort } from '../../src/utils/format';
 import { radius, spacing, type } from '../../src/theme/tokens';
-import { CATEGORY_LABELS, PAYMENT_METHOD_LABELS, type PaymentMethod } from '../../src/types';
+import { CATEGORY_LABELS, CATEGORY_VIVID_INDEX, PAYMENT_METHOD_LABELS, type PaymentMethod } from '../../src/types';
+
+/** Fondo suave para una insignia de color a partir de su tinte (hex u rgba). */
+function badgeBg(tint: string, fallback: string): string {
+  return tint.startsWith('#') ? tint + '22' : fallback;
+}
 
 const PAYMENT_ICON: Record<PaymentMethod, IoniconName> = {
   credit_card: 'card-outline', debit_card: 'card', paypal: 'logo-paypal',
@@ -72,11 +77,13 @@ export default function SubscriptionDetailScreen() {
     else Alert.alert('Copiada', 'CLABE copiada al portapapeles');
   };
 
+  // Un color por tipo de dato (calendario=índigo, ciclo=verde, pago=violeta,
+  // recordatorio=ámbar), como en Estadísticas — nada de íconos monocromos.
   const rows: { icon: IoniconName; label: string; value: string; tint: string }[] = [
-    { icon: 'calendar', label: 'Próximo cobro', value: next.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }), tint: urgent ? colors.urgent : colors.text },
-    { icon: 'repeat', label: 'Ciclo', value: sub.billing_cycle === 'monthly' ? 'Mensual' : 'Anual', tint: colors.text },
-    { icon: PAYMENT_ICON[sub.payment_method] ?? 'card-outline', label: 'Método de pago', value: PAYMENT_METHOD_LABELS[sub.payment_method] ?? 'Otro', tint: colors.text },
-    { icon: sub.remind_me ? 'notifications' : 'notifications-off', label: 'Recordatorio', value: sub.remind_me ? '1 día antes' : 'Desactivado', tint: colors.text },
+    { icon: 'calendar', label: 'Próximo cobro', value: next.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }), tint: urgent ? colors.urgent : colors.vivid[0] },
+    { icon: 'repeat', label: 'Ciclo', value: sub.billing_cycle === 'monthly' ? 'Mensual' : 'Anual', tint: colors.vivid[3] },
+    { icon: PAYMENT_ICON[sub.payment_method] ?? 'card-outline', label: 'Método de pago', value: PAYMENT_METHOD_LABELS[sub.payment_method] ?? 'Otro', tint: colors.vivid[5] },
+    { icon: sub.remind_me ? 'notifications' : 'notifications-off', label: 'Recordatorio', value: sub.remind_me ? '1 día antes' : 'Desactivado', tint: sub.remind_me ? colors.vivid[2] : colors.subtext },
     { icon: 'time', label: 'Agregada', value: new Date(sub.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }), tint: colors.subtext },
   ];
 
@@ -95,7 +102,7 @@ export default function SubscriptionDetailScreen() {
           badge={<GradientCircle size={62} icon="pencil" iconSize={24} onPress={() => router.push(`/subscription/new?id=${sub.id}`)} accessibilityLabel="Editar" />}
         >
           <View style={{ paddingRight: 84 }}>
-            <Tag label={CATEGORY_LABELS[sub.category]} solid />
+            <Tag label={CATEGORY_LABELS[sub.category]} color={colors.vivid[CATEGORY_VIVID_INDEX[sub.category]]} solid />
             <Text style={[s.heroName, { color: colors.text }]} numberOfLines={2}>{sub.name}</Text>
           </View>
           <Text style={[s.heroDesc, { color: colors.text }]} numberOfLines={3}>
@@ -147,7 +154,7 @@ export default function SubscriptionDetailScreen() {
         <View style={[s.list, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
           {rows.map((row, i) => (
             <View key={row.label} style={[s.row, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.separator }]}>
-              <View style={[s.rowIcon, { backgroundColor: row.tint === colors.urgent ? colors.urgentSoft : colors.accentSoft }]}>
+              <View style={[s.rowIcon, { backgroundColor: row.tint === colors.urgent ? colors.urgentSoft : badgeBg(row.tint, colors.accentSoft) }]}>
                 <Ionicons name={row.icon} size={17} color={row.tint} />
               </View>
               <Text style={[s.rowLabel, { color: colors.subtext }]} numberOfLines={1}>{row.label}</Text>
@@ -168,11 +175,13 @@ export default function SubscriptionDetailScreen() {
               <View style={{ flex: 1, gap: 4 }}>
                 <Text style={[type.bodyBold, { color: colors.text }]}>{linkedCard.alias}</Text>
                 {linkedCard.kind === 'clabe' && linkedCard.clabe
-                  ? <Text style={[s.clabe, { color: colors.text }]}>{linkedCard.clabe.replace(/(\d{4})(?=\d)/g, '$1 ')}</Text>
+                  ? <Text style={[s.clabe, { color: colors.vivid[0] }]}>{linkedCard.clabe.replace(/(\d{4})(?=\d)/g, '$1 ')}</Text>
                   : <Text style={{ color: colors.subtext, fontWeight: '400' }}>{linkedCard.bank}</Text>}
               </View>
               {linkedCard.kind === 'clabe'
-                ? <Ionicons name="copy-outline" size={20} color={colors.text} />
+                ? <View style={[s.copyIcon, { backgroundColor: badgeBg(colors.vivid[0], colors.accentSoft) }]}>
+                    <Ionicons name="copy-outline" size={16} color={colors.vivid[0]} />
+                  </View>
                 : <CardChip card={linkedCard} colors={colors} />}
             </Pressable>
           </>
@@ -221,6 +230,7 @@ const s = StyleSheet.create({
   rowValue: { fontSize: 14, fontWeight: '700', maxWidth: '55%' },
   cardRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16 },
   clabe: { fontSize: 14, fontWeight: '700', letterSpacing: 1.2 },
+  copyIcon: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
 
   actions: { flexDirection: 'row', gap: 12, marginHorizontal: spacing.screen, marginTop: 28 },
   delete: { width: 58, borderRadius: 29, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },

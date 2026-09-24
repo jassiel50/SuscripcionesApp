@@ -63,8 +63,10 @@ const LIGHT: ThemeColors = {
   accent:      '#09090B',
   accentSoft:  'rgba(9,9,11,0.06)',
   accentText:  '#FFFFFF',
-  gradient:    ['#09090B', '#3F3F46'],
-  gradientAlt: ['#18181B', '#52525B'],
+  // Gradientes de marca para CTAs, badges y píldoras activas: a color (no
+  // negro), a juego con la paleta vívida de las gráficas.
+  gradient:    ['#6366F1', '#8B5CF6'],
+  gradientAlt: ['#EC4899', '#F97316'],
 
   glass:       'rgba(255,255,255,0.62)',
   glassStrong: 'rgba(255,255,255,0.85)',
@@ -114,8 +116,8 @@ const DARK: ThemeColors = {
   accent:      '#FAFAFA',
   accentSoft:  'rgba(255,255,255,0.10)',
   accentText:  '#09090B',
-  gradient:    ['#FFFFFF', '#D4D4D8'],
-  gradientAlt: ['#E4E4E7', '#A1A1AA'],
+  gradient:    ['#818CF8', '#A78BFA'],
+  gradientAlt: ['#F472B6', '#FB923C'],
 
   glass:       'rgba(255,255,255,0.10)',
   glassStrong: 'rgba(40,40,58,0.72)',

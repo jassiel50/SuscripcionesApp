@@ -93,7 +93,7 @@ export default function HomeScreen() {
         left={
           <PressableScale onPress={() => router.push('/profile')} scaleTo={0.88} accessibilityLabel="Perfil">
             <Glass radius={22} interactive>
-              <View style={s.avatar}><Text style={[s.avatarText, { color: colors.text }]}>{initials}</Text></View>
+              <View style={s.avatar}><Text style={[s.avatarText, { color: colors.vivid[0] }]}>{initials}</Text></View>
             </Glass>
           </PressableScale>
         }

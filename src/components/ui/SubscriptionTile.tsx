@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../hooks/useTheme';
 import { SubIcon, brandColor } from '../../utils/brandIcons';
-import { CATEGORY_LABELS, type Subscription } from '../../types';
+import { CATEGORY_LABELS, CATEGORY_VIVID_INDEX, type Subscription } from '../../types';
 import { daysUntilRenewal, nextRenewalDate, relativeDayLabel, shortDate } from '../../utils/dates';
 import { money, moneyParts } from '../../utils/format';
 import { radius, spacing, type } from '../../theme/tokens';
@@ -94,7 +94,7 @@ export function FeaturedSubscriptionCard({
         }
       >
         <View style={{ paddingRight: 86 }}>
-          <Tag label={label} color={days <= 3 ? colors.urgent : undefined} solid />
+          <Tag label={label} color={days <= 3 ? colors.urgent : colors.vivid[CATEGORY_VIVID_INDEX[sub.category]]} solid />
           <Text style={[r.featuredName, { color: colors.text }]} numberOfLines={2}>{sub.name}</Text>
         </View>
         <Text style={[r.featuredDesc, { color: colors.text }]} numberOfLines={2}>

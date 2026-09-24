@@ -234,9 +234,9 @@ export default function CalendarScreen() {
         <View style={s.dayHeader}>
           <Text style={[type.h2, { color: colors.text, flex: 1 }]} numberOfLines={1}>{selectedLabel}</Text>
           {selectedSubs.length > 0 && (
-            <View style={[s.totalPill, { backgroundColor: colors.ink }]}>
+            <LinearGradient colors={colors.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.totalPill}>
               <Text style={[s.totalText, { color: colors.onInk }]}>{money(selectedTotal)}</Text>
-            </View>
+            </LinearGradient>
           )}
         </View>
 

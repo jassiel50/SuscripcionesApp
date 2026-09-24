@@ -90,9 +90,9 @@ export function CardChip({ card, colors }: { card: PaymentCard; colors: ReturnTy
 
   if (card.kind === 'clabe') {
     return (
-      <View style={[chip.wrap, { backgroundColor: colors.accentSoft }]}>
-        <Ionicons name="swap-horizontal-outline" size={14} color={colors.accent} />
-        <Text style={[chip.text, { color: colors.accent }]}>
+      <View style={[chip.wrap, { backgroundColor: colors.vivid[0] + '22' }]}>
+        <Ionicons name="swap-horizontal-outline" size={14} color={colors.vivid[0]} />
+        <Text style={[chip.text, { color: colors.vivid[0] }]}>
           CLABE •••• {card.last_digits} · {card.bank}
         </Text>
       </View>
@@ -177,7 +177,7 @@ function AddCardForm({ onSave, onCancel, colors }: AddFormProps) {
           {(['credit', 'debit', 'clabe'] as CardKind[]).map(k => (
             <TouchableOpacity
               key={k}
-              style={[f.seg, kind === k && { backgroundColor: colors.accent }]}
+              style={[f.seg, kind === k && { backgroundColor: colors.vivid[0] }]}
               onPress={() => setKind(k)}
             >
               <Text style={[f.segText, { color: kind === k ? '#fff' : colors.subtext }]}>
@@ -260,7 +260,7 @@ function AddCardForm({ onSave, onCancel, colors }: AddFormProps) {
             {BANKS.map(b => (
               <TouchableOpacity
                 key={b}
-                style={[f.bankChip, { backgroundColor: bank === b ? colors.accent : colors.card, borderColor: bank === b ? colors.accent : colors.cardBorder }]}
+                style={[f.bankChip, { backgroundColor: bank === b ? colors.vivid[0] : colors.card, borderColor: bank === b ? colors.vivid[0] : colors.cardBorder }]}
                 onPress={() => setBank(b === 'Otro' ? '' : b)}
               >
                 <Text style={[f.bankChipText, { color: bank === b ? '#fff' : colors.subtext }]}>{b}</Text>
@@ -270,7 +270,7 @@ function AddCardForm({ onSave, onCancel, colors }: AddFormProps) {
         </ScrollView>
 
         <TouchableOpacity
-          style={[f.saveBtn, { backgroundColor: colors.accent }, saving && { opacity: 0.6 }]}
+          style={[f.saveBtn, { backgroundColor: colors.vivid[0] }, saving && { opacity: 0.6 }]}
           onPress={handleSave}
           disabled={saving}
         >
@@ -340,11 +340,11 @@ export default function CardPickerModal({ visible, selectedCardId, onSelect, onC
         <View style={[m.header, { borderBottomColor: colors.separator }]}>
           {mode === 'add' ? (
             <TouchableOpacity onPress={() => setMode('list')}>
-              <Ionicons name="arrow-back" size={22} color={colors.accent} />
+              <Ionicons name="arrow-back" size={22} color={colors.vivid[0]} />
             </TouchableOpacity>
           ) : (
             <TouchableOpacity onPress={onClose}>
-              <Text style={[m.headerBtn, { color: colors.accent }]}>Cancelar</Text>
+              <Text style={[m.headerBtn, { color: colors.vivid[0] }]}>Cancelar</Text>
             </TouchableOpacity>
           )}
           <Text style={[m.title, { color: colors.text }]}>
@@ -352,7 +352,7 @@ export default function CardPickerModal({ visible, selectedCardId, onSelect, onC
           </Text>
           {mode === 'list' ? (
             <TouchableOpacity onPress={() => setMode('add')}>
-              <Ionicons name="add" size={24} color={colors.accent} />
+              <Ionicons name="add" size={24} color={colors.vivid[0]} />
             </TouchableOpacity>
           ) : <View style={{ width: 24 }} />}
         </View>
@@ -369,15 +369,15 @@ export default function CardPickerModal({ visible, selectedCardId, onSelect, onC
                 <Ionicons name="close" size={18} color={colors.subtext} />
               </View>
               <Text style={[m.cardAlias, { color: colors.subtext }]}>Sin tarjeta asociada</Text>
-              {!selectedCardId && <Ionicons name="checkmark-circle" size={20} color={colors.accent} />}
+              {!selectedCardId && <Ionicons name="checkmark-circle" size={20} color={colors.vivid[0]} />}
             </TouchableOpacity>
 
             {/* Card list */}
             {cards.map(card => {
               const isSelected = card.id === selectedCardId;
               const isClabe = card.kind === 'clabe';
-              const iconBg = isClabe ? colors.accentSoft : brandIconBg(card.brand, dark);
-              const iconColor = isClabe ? colors.accent : null;
+              const iconBg = isClabe ? colors.vivid[0] + '22' : brandIconBg(card.brand, dark);
+              const iconColor = isClabe ? colors.vivid[0] : null;
 
               const copyClabe = async () => {
                 if (!card.clabe) return;
@@ -389,7 +389,7 @@ export default function CardPickerModal({ visible, selectedCardId, onSelect, onC
               return (
                 <TouchableOpacity
                   key={card.id}
-                  style={[m.cardRow, { backgroundColor: colors.card, borderColor: isSelected ? colors.accent : colors.cardBorder, borderWidth: isSelected ? 1.5 : StyleSheet.hairlineWidth }]}
+                  style={[m.cardRow, { backgroundColor: colors.card, borderColor: isSelected ? colors.vivid[0] : colors.cardBorder, borderWidth: isSelected ? 1.5 : StyleSheet.hairlineWidth }]}
                   onPress={() => { onSelect(card); onClose(); }}
                   onLongPress={() => handleDelete(card)}
                   activeOpacity={0.7}
@@ -403,7 +403,7 @@ export default function CardPickerModal({ visible, selectedCardId, onSelect, onC
                   <View style={{ flex: 1 }}>
                     <Text style={[m.cardAlias, { color: colors.text }]}>{card.alias}</Text>
                     {isClabe && card.clabe ? (
-                      <Text style={[m.clabeText, { color: colors.accent }]}>
+                      <Text style={[m.clabeText, { color: colors.vivid[0] }]}>
                         {card.clabe.replace(/(\d{4})(?=\d)/g, '$1 ')}
                       </Text>
                     ) : (
@@ -413,14 +413,14 @@ export default function CardPickerModal({ visible, selectedCardId, onSelect, onC
                   {isClabe && card.clabe && (
                     <TouchableOpacity
                       onPress={copyClabe}
-                      style={[m.copyBtn, { backgroundColor: colors.accentSoft }]}
+                      style={[m.copyBtn, { backgroundColor: colors.vivid[0] + '22' }]}
                       hitSlop={8}
                     >
-                      <Ionicons name="copy-outline" size={14} color={colors.accent} />
-                      <Text style={[m.copyText, { color: colors.accent }]}>Copiar</Text>
+                      <Ionicons name="copy-outline" size={14} color={colors.vivid[0]} />
+                      <Text style={[m.copyText, { color: colors.vivid[0] }]}>Copiar</Text>
                     </TouchableOpacity>
                   )}
-                  {isSelected && !isClabe && <Ionicons name="checkmark-circle" size={20} color={colors.accent} />}
+                  {isSelected && !isClabe && <Ionicons name="checkmark-circle" size={20} color={colors.vivid[0]} />}
                 </TouchableOpacity>
               );
             })}
@@ -432,7 +432,7 @@ export default function CardPickerModal({ visible, selectedCardId, onSelect, onC
                   Aún no tienes tarjetas guardadas
                 </Text>
                 <TouchableOpacity
-                  style={[m.emptyBtn, { backgroundColor: colors.accent }]}
+                  style={[m.emptyBtn, { backgroundColor: colors.vivid[0] }]}
                   onPress={() => setMode('add')}
                 >
                   <Text style={m.emptyBtnText}>Agregar tarjeta</Text>

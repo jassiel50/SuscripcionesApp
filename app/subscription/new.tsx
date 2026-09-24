@@ -258,7 +258,7 @@ export default function NewSubscriptionScreen() {
           {/* Fecha */}
           <Label text="Próximo cobro" />
           <Pressable onPress={() => setShowDatePicker(v => !v)} style={[s.field, { backgroundColor: colors.surface }]}>
-            <Ionicons name="calendar-outline" size={20} color={colors.accent} />
+            <Ionicons name="calendar-outline" size={20} color={colors.vivid[0]} />
             <Text style={[s.input, { color: colors.text }]}>{longDate(renewalDate)}</Text>
             <Ionicons name={showDatePicker ? 'chevron-up' : 'chevron-down'} size={18} color={colors.subtext} />
           </Pressable>
@@ -270,12 +270,12 @@ export default function NewSubscriptionScreen() {
                 display={Platform.OS === 'ios' ? 'inline' : 'default'}
                 onChange={handleDateChange}
                 locale="es-MX"
-                accentColor={colors.accent}
+                accentColor={colors.vivid[0]}
                 themeVariant={dark ? 'dark' : 'light'}
               />
               {Platform.OS === 'ios' && (
                 <Pressable style={s.pickerDone} onPress={() => setShowDatePicker(false)}>
-                  <Text style={[type.bodyBold, { color: colors.accent }]}>Listo</Text>
+                  <Text style={[type.bodyBold, { color: colors.vivid[0] }]}>Listo</Text>
                 </Pressable>
               )}
             </View>
@@ -337,10 +337,17 @@ export default function NewSubscriptionScreen() {
               const active = paymentMethod === pm.key;
               return (
                 <PressableScale key={pm.key} onPress={() => setPaymentMethod(pm.key)} style={s.pmCell}>
-                  <View style={[s.pm, active ? { backgroundColor: colors.ink } : { backgroundColor: colors.surface }]}>
-                    <Ionicons name={pm.icon} size={18} color={active ? colors.onInk : colors.subtext} />
-                    <Text style={[s.pmLabel, { color: active ? colors.onInk : colors.text }]} numberOfLines={2}>{pm.label}</Text>
-                  </View>
+                  {active ? (
+                    <LinearGradient colors={colors.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.pm}>
+                      <Ionicons name={pm.icon} size={18} color={colors.onInk} />
+                      <Text style={[s.pmLabel, { color: colors.onInk }]} numberOfLines={2}>{pm.label}</Text>
+                    </LinearGradient>
+                  ) : (
+                    <View style={[s.pm, { backgroundColor: colors.surface }]}>
+                      <Ionicons name={pm.icon} size={18} color={colors.subtext} />
+                      <Text style={[s.pmLabel, { color: colors.text }]} numberOfLines={2}>{pm.label}</Text>
+                    </View>
+                  )}
                 </PressableScale>
               );
             })}

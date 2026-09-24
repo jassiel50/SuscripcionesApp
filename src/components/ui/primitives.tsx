@@ -209,7 +209,7 @@ export function SectionHeader({ title, action, onAction }: { title: string; acti
       <Text style={[type.h2, { color: colors.text }]}>{title}</Text>
       {action && (
         <Pressable onPress={onAction} hitSlop={10}>
-          <Text style={[type.caption, { color: colors.accent }]}>{action}</Text>
+          <Text style={[type.caption, { color: colors.vivid[0] }]}>{action}</Text>
         </Pressable>
       )}
     </View>
@@ -287,8 +287,8 @@ export function EmptyState({
   const { colors } = useTheme();
   return (
     <View style={p.empty}>
-      <View style={[p.emptyIcon, { backgroundColor: colors.accentSoft }]}>
-        <Ionicons name={icon} size={36} color={colors.accent} />
+      <View style={[p.emptyIcon, { backgroundColor: colors.vivid[0] + '1A' }]}>
+        <Ionicons name={icon} size={36} color={colors.vivid[0]} />
       </View>
       <Text style={[type.h2, { color: colors.text, textAlign: 'center' }]}>{title}</Text>
       {body && <Text style={[type.body, { color: colors.subtext, textAlign: 'center', lineHeight: 22 }]}>{body}</Text>}

@@ -129,7 +129,7 @@ export default function CatalogBrowser({
                       <Text style={[s.planPrice, { color: colors.text }]}>{moneyShort(plan.precioMensual)}</Text>
                       <Text style={[s.planPer, { color: colors.subtext }]}>/mes</Text>
                     </View>
-                    <View style={[s.planGo, { backgroundColor: colors.accent }]}>
+                    <View style={[s.planGo, { backgroundColor: selected.color }]}>
                       <Ionicons name="add" size={18} color={colors.onInk} />
                     </View>
                   </PressableScale>
