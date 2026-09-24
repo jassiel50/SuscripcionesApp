@@ -16,6 +16,7 @@ import {
   signInWithEmailAndPassword,
 } from 'firebase/auth';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { auth } from '../src/firebase';
 import { useTheme } from '../src/hooks/useTheme';
 
@@ -151,13 +152,21 @@ export default function LoginScreen() {
         >
           {/* Brand */}
           <View style={s.brandSection}>
-            <View style={[s.logo, { backgroundColor: colors.accent }]}>
-              <Ionicons name="card" size={52} color="#fff" />
-            </View>
-            <Text style={[s.appName, { color: colors.text }]}>Subly</Text>
+            <LinearGradient colors={colors.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.logo}>
+              <Ionicons name="repeat" size={54} color="#fff" />
+            </LinearGradient>
+            <Text style={[s.appName, { color: colors.text }]}>SUBLY</Text>
             <Text style={[s.tagline, { color: colors.subtext }]}>
-              Gestiona y controla{'\n'}tus suscripciones
+              Todas tus suscripciones,{'\n'}un solo lugar.
             </Text>
+            <View style={s.features}>
+              {([['notifications', 'Recordatorios'], ['pie-chart', 'Estadísticas'], ['calendar', 'Calendario']] as const).map(([icon, label]) => (
+                <View key={label} style={[s.feature, { backgroundColor: colors.surface }]}>
+                  <Ionicons name={icon} size={14} color={colors.accent} />
+                  <Text style={[s.featureText, { color: colors.text }]}>{label}</Text>
+                </View>
+              ))}
+            </View>
           </View>
 
           {/* Buttons */}
@@ -180,7 +189,7 @@ export default function LoginScreen() {
 
             {/* Google */}
             <TouchableOpacity
-              style={[s.btn, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
+              style={[s.btn, { backgroundColor: colors.surface, borderColor: colors.surface }]}
               onPress={handleGoogle}
               disabled={!!loading}
               activeOpacity={0.8}
@@ -218,7 +227,7 @@ export default function LoginScreen() {
 
             {/* Email toggle */}
             <TouchableOpacity
-              style={[s.btn, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
+              style={[s.btn, { backgroundColor: colors.surface, borderColor: colors.surface }]}
               onPress={() => { setShowEmail(v => !v); setError(null); setResetSent(false); }}
               disabled={!!loading}
               activeOpacity={0.8}
@@ -237,14 +246,14 @@ export default function LoginScreen() {
             {showEmail && (
               <View style={s.emailForm}>
                 {/* Mode selector */}
-                <View style={[s.modePicker, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+                <View style={[s.modePicker, { backgroundColor: colors.surface, borderColor: colors.surface }]}>
                   {(['login', 'register'] as EmailMode[]).map(m => (
                     <TouchableOpacity
                       key={m}
-                      style={[s.modeBtn, emailMode === m && { backgroundColor: colors.accent }]}
+                      style={[s.modeBtn, emailMode === m && { backgroundColor: colors.bg }]}
                       onPress={() => { setEmailMode(m); setError(null); setResetSent(false); }}
                     >
-                      <Text style={[s.modeBtnText, { color: emailMode === m ? '#fff' : colors.subtext }]}>
+                      <Text style={[s.modeBtnText, { color: emailMode === m ? colors.accent : colors.subtext }]}>
                         {m === 'login' ? 'Iniciar sesión' : 'Registrarse'}
                       </Text>
                     </TouchableOpacity>
@@ -252,7 +261,7 @@ export default function LoginScreen() {
                 </View>
 
                 {/* Email input */}
-                <View style={[s.input, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+                <View style={[s.input, { backgroundColor: colors.surface, borderColor: colors.surface }]}>
                   <Ionicons name="mail-outline" size={18} color={colors.subtext} />
                   <TextInput
                     style={[s.inputText, { color: colors.text }]}
@@ -269,7 +278,7 @@ export default function LoginScreen() {
                 </View>
 
                 {/* Password input */}
-                <View style={[s.input, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+                <View style={[s.input, { backgroundColor: colors.surface, borderColor: colors.surface }]}>
                   <Ionicons name="lock-closed-outline" size={18} color={colors.subtext} />
                   <TextInput
                     ref={passwordRef}
@@ -292,19 +301,16 @@ export default function LoginScreen() {
                 </View>
 
                 {/* Submit */}
-                <TouchableOpacity
-                  style={[s.btn, { backgroundColor: colors.accent, borderWidth: 0 }]}
-                  onPress={handleEmail}
-                  disabled={!!loading}
-                  activeOpacity={0.8}
-                >
-                  {loading === 'email' ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <Text style={[s.btnText, { color: '#fff' }]}>
-                      {emailMode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
-                    </Text>
-                  )}
+                <TouchableOpacity onPress={handleEmail} disabled={!!loading} activeOpacity={0.85}>
+                  <LinearGradient colors={colors.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[s.btn, { borderWidth: 0 }]}>
+                    {loading === 'email' ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Text style={[s.btnText, { color: '#fff', fontWeight: '800' }]}>
+                        {emailMode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
+                      </Text>
+                    )}
+                  </LinearGradient>
                 </TouchableOpacity>
 
                 {/* Forgot password */}
@@ -345,25 +351,28 @@ const s = StyleSheet.create({
   scroll: { flexGrow: 1, paddingHorizontal: 24, paddingVertical: 16 },
   brandSection: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14, minHeight: 220 },
   logo: {
-    width: 110, height: 110, borderRadius: 30,
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18, shadowRadius: 16, elevation: 10,
+    width: 108, height: 108, borderRadius: 34,
+    alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '-8deg' }],
+    shadowColor: '#3E63F5', shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.35, shadowRadius: 24, elevation: 12,
   },
-  appName: { fontSize: 44, fontWeight: '800', letterSpacing: -1 },
-  tagline: { fontSize: 17, textAlign: 'center', lineHeight: 24 },
+  appName: { fontSize: 46, fontWeight: '900', letterSpacing: 3, marginTop: 8 },
+  tagline: { fontSize: 18, fontWeight: '700', textAlign: 'center', lineHeight: 25 },
+  features: { flexDirection: 'row', gap: 8, marginTop: 6, flexWrap: 'wrap', justifyContent: 'center' },
+  feature: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999 },
+  featureText: { fontSize: 12, fontWeight: '800' },
   btnSection: { gap: 12, marginBottom: 20 },
   errorBox: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 10, padding: 10 },
   errorText: { color: '#FF3B30', fontSize: 14, flex: 1 },
   btn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 12, borderRadius: 16, paddingVertical: 17,
+    gap: 12, borderRadius: 999, paddingVertical: 17,
     borderWidth: StyleSheet.hairlineWidth,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06, shadowRadius: 6, elevation: 2,
   },
   btnApple: { backgroundColor: '#000', borderWidth: 0 },
-  btnText: { fontSize: 16, fontWeight: '600' },
+  btnText: { fontSize: 16, fontWeight: '700' },
   gLogo: {
     width: 22, height: 22, borderRadius: 4,
     backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center',
@@ -379,8 +388,8 @@ const s = StyleSheet.create({
   modeBtnText: { fontSize: 14, fontWeight: '600' },
   input: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    borderRadius: 14, borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 14, paddingVertical: 14,
+    borderRadius: 16, borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 16, paddingVertical: 15,
   },
   inputText: { flex: 1, fontSize: 16 },
   forgotBtn: { alignItems: 'center', paddingVertical: 4 },

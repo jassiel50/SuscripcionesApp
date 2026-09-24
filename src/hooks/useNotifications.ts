@@ -2,6 +2,8 @@ import { useCallback } from 'react';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import type { NewSubscription } from '../types';
+import { nextRenewalDate } from '../utils/dates';
+import { money } from '../utils/format';
 
 export async function requestNotificationPermissions(): Promise<boolean> {
   if (Platform.OS === 'web') return false;
@@ -17,11 +19,14 @@ export function useScheduleNotification() {
       const granted = await requestNotificationPermissions();
       if (!granted) return null;
 
-      const renewal = new Date(sub.next_renewal + 'T09:00:00');
+      // Si la fecha ancla ya pasó, se usa la siguiente ocurrencia real del ciclo.
+      const renewal = nextRenewalDate(sub);
+      renewal.setHours(9, 0, 0, 0);
       // Notify 1 day before renewal
       const reminderDay = new Date(renewal);
       reminderDay.setDate(reminderDay.getDate() - 1);
-      if (reminderDay <= new Date()) return null;
+      // No hace falta descartar fechas pasadas: el trigger CALENDAR es repetitivo
+      // y el sistema dispara en la siguiente coincidencia (mes/año siguiente).
 
       // Use a repeating CALENDAR trigger so the notification fires every cycle
       let trigger: Notifications.NotificationTriggerInput;
@@ -53,7 +58,7 @@ export function useScheduleNotification() {
       return await Notifications.scheduleNotificationAsync({
         content: {
           title: `${sub.name} renueva mañana`,
-          body: `Se cobrará $${sub.price.toFixed(2)} ${sub.billing_cycle === 'monthly' ? '/mes' : '/año'}`,
+          body: `Se cobrará ${money(sub.price)} ${sub.billing_cycle === 'monthly' ? '/mes' : '/año'}`,
           sound: true,
         },
         trigger,

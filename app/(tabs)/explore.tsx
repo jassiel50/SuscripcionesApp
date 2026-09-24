@@ -1,295 +1,212 @@
-import React, { useMemo } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Circle, Text as SvgText } from 'react-native-svg';
-import { isExpoGo } from '../../src/utils/env';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useSubscriptions } from '../../src/hooks/useSubscriptions';
 import { useTheme } from '../../src/hooks/useTheme';
+import BudgetModal from '../../src/components/BudgetModal';
 import {
-  CATEGORY_COLORS,
-  CATEGORY_LABELS,
-  PAYMENT_METHOD_LABELS,
-  type Category,
-  type PaymentMethod,
-  type Subscription,
+  AreaChart, Donut, EmptyState, Gauge, ScreenHeader, SectionHeader, useTabBarSpace, type IoniconName,
+} from '../../src/components/ui';
+import { SubIcon } from '../../src/utils/brandIcons';
+import { monthlyEquivalent, MONTHS_SHORT, totalForMonth } from '../../src/utils/dates';
+import { money, moneyParts, moneyShort, pluralize } from '../../src/utils/format';
+import { radius, spacing, type } from '../../src/theme/tokens';
+import {
+  CATEGORY_COLORS, CATEGORY_LABELS, PAYMENT_METHOD_LABELS,
+  type Category, type PaymentMethod, type Subscription,
 } from '../../src/types';
 
-// ── Donut chart constants ───────────────────────────────────────────────────────
-const DONUT = 188;
-const SW = 34;
-const R = (DONUT - SW) / 2;
-const CIRC = 2 * Math.PI * R;
-const CX = DONUT / 2;
-const CY = DONUT / 2;
-
-const MONTH_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-const BAR_MAX_H = 88;
-
-// ── Helpers ────────────────────────────────────────────────────────────────────
-
-function monthlyFromSub(sub: Subscription): number {
-  return sub.billing_cycle === 'yearly' ? sub.price / 12 : sub.price;
-}
-
-function getMonthlyProjections(subs: Subscription[]): number[] {
-  const months = new Array(12).fill(0) as number[];
-  for (const sub of subs) {
-    if (sub.billing_cycle === 'monthly') {
-      for (let m = 0; m < 12; m++) months[m] += sub.price;
-    } else {
-      const m = new Date(sub.next_renewal + 'T12:00:00').getMonth();
-      months[m] += sub.price;
-    }
-  }
-  return months;
-}
-
-// ── Donut chart ────────────────────────────────────────────────────────────────
-
-type Segment = { category: Category; label: string; color: string; total: number };
-
-function DonutChart({
-  segments, total, colors,
-}: {
-  segments: Segment[];
-  total: number;
-  colors: ReturnType<typeof useTheme>['colors'];
-}) {
-  let cumulative = 0;
-  return (
-    <Svg width={DONUT} height={DONUT}>
-      <Circle cx={CX} cy={CY} r={R} fill="none" stroke={colors.separator} strokeWidth={SW} />
-      {total > 0 && segments.map((seg, i) => {
-        const pct = seg.total / total;
-        const dash = CIRC * pct;
-        const rot = -90 + cumulative * 360;
-        cumulative += pct;
-        return (
-          <Circle
-            key={i}
-            cx={CX} cy={CY} r={R}
-            fill="none"
-            stroke={seg.color}
-            strokeWidth={SW - 2}
-            strokeDasharray={`${dash} ${CIRC - dash}`}
-            transform={`rotate(${rot}, ${CX}, ${CY})`}
-          />
-        );
-      })}
-      <SvgText x={CX} y={CY - 10} textAnchor="middle" fontSize={22} fontWeight="700" fill={colors.text}>{`$${total.toFixed(0)}`}</SvgText>
-      <SvgText x={CX} y={CY + 12} textAnchor="middle" fontSize={12} fill={colors.subtext}>{'por mes'}</SvgText>
-    </Svg>
-  );
-}
-
-// ── Monthly bar chart ──────────────────────────────────────────────────────────
-
-function MonthlyBars({
-  data, colors,
-}: {
-  data: number[];
-  colors: ReturnType<typeof useTheme>['colors'];
-}) {
-  const max = Math.max(...data, 0.01);
-  const currentMonth = new Date().getMonth();
-
-  return (
-    <View style={s.barsRow}>
-      {data.map((val, i) => {
-        const barH = Math.max((val / max) * BAR_MAX_H, val > 0 ? 4 : 0);
-        const isNow = i === currentMonth;
-        return (
-          <View key={i} style={s.barCol}>
-            <View style={[s.barTrack, { height: BAR_MAX_H }]}>
-              <View style={[s.barFill, { height: barH, backgroundColor: isNow ? colors.primary : colors.accentSoft }]} />
-            </View>
-            {val > 0 && (
-              <Text style={[s.barVal, { color: isNow ? colors.primary : colors.subtext }]}>
-                ${Math.round(val)}
-              </Text>
-            )}
-            <Text style={[s.barMon, { color: isNow ? colors.primary : colors.subtext, fontWeight: isNow ? '700' : '400' }]}>
-              {MONTH_SHORT[i]}
-            </Text>
-          </View>
-        );
-      })}
-    </View>
-  );
-}
-
-// ── Main screen ────────────────────────────────────────────────────────────────
+type Tip = { icon: IoniconName; title: string; body: string; accent: string };
 
 export default function StatisticsScreen() {
-  const { subscriptions, loading, monthlyTotal } = useSubscriptions();
-  const { colors, dark } = useTheme();
-  const insets = useSafeAreaInsets();
+  const { subscriptions, loading, monthlyTotal, yearlyTotal, budget } = useSubscriptions();
+  const { colors } = useTheme();
+  const router = useRouter();
+  const bottom = useTabBarSpace();
+  const [budgetOpen, setBudgetOpen] = useState(false);
 
-  const annualTotal = monthlyTotal * 12;
+  // Próximos 12 meses, cobros reales
+  const months = useMemo(() => {
+    const now = new Date();
+    return Array.from({ length: 12 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+      return { label: MONTHS_SHORT[d.getMonth()], value: totalForMonth(subscriptions, d.getFullYear(), d.getMonth()) };
+    });
+  }, [subscriptions]);
+  const peak = months.reduce((best, m, i) => (m.value > months[best].value ? i : best), 0);
 
-  const segments: Segment[] = useMemo(() => {
+  const segments = useMemo(() => {
     const map: Partial<Record<Category, number>> = {};
-    for (const sub of subscriptions) {
-      const m = monthlyFromSub(sub);
-      map[sub.category] = (map[sub.category] ?? 0) + m;
-    }
+    for (const sub of subscriptions) map[sub.category] = (map[sub.category] ?? 0) + monthlyEquivalent(sub);
     return (Object.entries(map) as [Category, number][])
       .sort((a, b) => b[1] - a[1])
-      .map(([cat, total]) => ({
-        category: cat,
-        label: CATEGORY_LABELS[cat],
-        color: CATEGORY_COLORS[cat],
-        total,
-      }));
+      .map(([cat, total]) => ({ cat, label: CATEGORY_LABELS[cat], color: CATEGORY_COLORS[cat], value: total }));
   }, [subscriptions]);
 
-  const monthlyProj = useMemo(() => getMonthlyProjections(subscriptions), [subscriptions]);
+  const top = useMemo(
+    () => [...subscriptions].sort((a, b) => monthlyEquivalent(b) - monthlyEquivalent(a)).slice(0, 5),
+    [subscriptions],
+  );
 
-  type Tip = { icon: React.ComponentProps<typeof Ionicons>['name']; title: string; body: string; accent: string };
+  const monthlyShare = monthlyTotal > 0
+    ? subscriptions.filter(s => s.billing_cycle === 'monthly').reduce((t, s) => t + s.price, 0) / monthlyTotal
+    : 0;
+
   const tips: Tip[] = useMemo(() => {
-    const result: Tip[] = [];
+    const out: Tip[] = [];
     const monthlySubs = subscriptions.filter(s => s.billing_cycle === 'monthly');
     if (monthlySubs.length > 0) {
       const savings = monthlySubs.reduce((sum, s) => sum + s.price * 12 * 0.17, 0);
-      result.push({
-        icon: 'trending-down-outline',
-        title: 'Paga anualmente y ahorra',
-        body: `Cambiar tus ${monthlySubs.length} suscripción${monthlySubs.length > 1 ? 'es' : ''} mensual${monthlySubs.length > 1 ? 'es' : ''} a plan anual podría ahorrarte ~$${savings.toFixed(0)}/año (descuento típico del 17%).`,
-        accent: '#10B981',
+      out.push({
+        icon: 'trending-down', accent: colors.success,
+        title: 'Paga anual y ahorra',
+        body: `Pasar ${pluralize(monthlySubs.length, 'plan mensual', 'planes mensuales')} a anual podría ahorrarte ~${moneyShort(savings)}/año (descuento típico del 17%).`,
       });
     }
-    const catCount: Partial<Record<Category, number>> = {};
-    for (const sub of subscriptions) catCount[sub.category] = (catCount[sub.category] ?? 0) + 1;
-    for (const [cat, count] of Object.entries(catCount) as [Category, number][]) {
-      if (count >= 2) {
-        result.push({
-          icon: 'layers-outline',
-          title: `${count} suscripciones en ${CATEGORY_LABELS[cat]}`,
-          body: `¿Necesitas todas? Considera consolidar o cancelar alguna.`,
-          accent: CATEGORY_COLORS[cat],
-        });
-        break;
-      }
-    }
-    if (subscriptions.length > 0) {
-      const top = [...subscriptions].sort((a, b) => monthlyFromSub(b) - monthlyFromSub(a))[0];
-      const pct = monthlyTotal > 0 ? Math.round(monthlyFromSub(top) / monthlyTotal * 100) : 0;
-      result.push({
-        icon: 'star-outline',
-        title: `${top.name} es tu mayor gasto`,
-        body: `$${monthlyFromSub(top).toFixed(2)}/mes — representa el ${pct}% de tu gasto total mensual.`,
-        accent: colors.accent,
+    const counts: Partial<Record<Category, number>> = {};
+    for (const sub of subscriptions) counts[sub.category] = (counts[sub.category] ?? 0) + 1;
+    const dup = (Object.entries(counts) as [Category, number][]).find(([, n]) => n >= 2);
+    if (dup) {
+      out.push({
+        icon: 'layers', accent: CATEGORY_COLORS[dup[0]],
+        title: `${dup[1]} servicios de ${CATEGORY_LABELS[dup[0]]}`,
+        body: '¿Los usas todos? Rotar servicios (uno por mes) es una forma fácil de ahorrar.',
       });
     }
-    return result;
-  }, [subscriptions, monthlyTotal, colors]);
+    if (budget > 0 && monthlyTotal > budget) {
+      out.push({
+        icon: 'warning', accent: colors.urgent,
+        title: 'Te pasaste del presupuesto',
+        body: `Vas ${moneyShort(monthlyTotal - budget)} arriba de tu límite mensual de ${moneyShort(budget)}.`,
+      });
+    }
+    return out;
+  }, [subscriptions, monthlyTotal, budget, colors]);
 
-  type PmGroup = { method: PaymentMethod; label: string; subs: Subscription[]; total: number };
-  const pmGroups: PmGroup[] = useMemo(() => {
+  const byMethod = useMemo(() => {
     const map: Partial<Record<PaymentMethod, Subscription[]>> = {};
-    for (const sub of subscriptions) {
-      if (!map[sub.payment_method]) map[sub.payment_method] = [];
-      map[sub.payment_method]!.push(sub);
-    }
+    for (const sub of subscriptions) (map[sub.payment_method] ??= []).push(sub);
     return (Object.entries(map) as [PaymentMethod, Subscription[]][])
-      .map(([method, subs]) => ({
-        method,
-        label: PAYMENT_METHOD_LABELS[method],
-        subs,
-        total: subs.reduce((sum, s) => sum + monthlyFromSub(s), 0),
-      }))
+      .map(([method, subs]) => ({ method, subs, total: subs.reduce((t, s) => t + monthlyEquivalent(s), 0) }))
       .sort((a, b) => b.total - a.total);
   }, [subscriptions]);
 
   if (!loading && subscriptions.length === 0) {
     return (
       <SafeAreaView edges={['top']} style={[s.root, { backgroundColor: colors.bg }]}>
-        <Text style={[s.sectionHeader, { color: colors.text, marginTop: 16 }]}>Estadísticas</Text>
-        <View style={s.emptyContainer}>
-          <Ionicons name="pie-chart-outline" size={56} color={colors.subtext} />
-          <Text style={[s.emptyText, { color: colors.subtext }]}>Sin datos aún</Text>
-          <Text style={[s.emptyHint, { color: colors.subtext }]}>Agrega suscripciones para ver tus estadísticas</Text>
-        </View>
+        <ScreenHeader title="Estadísticas" />
+        <EmptyState icon="pie-chart-outline" title="Sin datos aún" body="Agrega suscripciones para ver tus gráficas y recomendaciones de ahorro." cta="Agregar suscripción" onCta={() => router.push('/subscription/new')} />
       </SafeAreaView>
     );
   }
 
+  const { int, dec } = moneyParts(yearlyTotal);
+  const budgetPct = budget > 0 ? monthlyTotal / budget : 0;
+  const maxTop = top[0] ? monthlyEquivalent(top[0]) : 1;
+
   return (
     <SafeAreaView edges={['top']} style={[s.root, { backgroundColor: colors.bg }]}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: isExpoGo ? insets.bottom + 90 : 24 }}
-      >
-        {/* ── Annual hero card ── */}
-        <LinearGradient
-          colors={dark ? ['#1E293B', '#0F172A'] : ['#111827', '#374151']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={s.heroCard}
-        >
-          <View style={s.heroDec1} />
-          <View style={s.heroDec2} />
-          <View style={s.heroTitleRow}>
-            <Text style={s.heroScreenTitle}>Estadísticas</Text>
-            <View style={s.heroIconWrap}>
-              <Ionicons name="bar-chart-outline" size={20} color="rgba(255,255,255,0.8)" />
-            </View>
+      <BudgetModal visible={budgetOpen} onClose={() => setBudgetOpen(false)} />
+      <ScreenHeader title="Estadísticas" />
+
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: bottom }}>
+        {/* Hero anual con gráfica */}
+        <LinearGradient colors={colors.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.hero}>
+          <Text style={s.heroLabel}>Gasto anual estimado</Text>
+          <Text style={s.heroAmount}>{int}<Text style={s.heroDec}>.{dec}</Text></Text>
+          <Text style={s.heroSub}>{money(monthlyTotal)}/mes · {pluralize(subscriptions.length, 'suscripción', 'suscripciones')}</Text>
+          <View style={{ marginTop: 14 }}>
+            <AreaChart
+              id="stats"
+              data={months.map(m => m.value)}
+              labels={months.map((m, i) => (i % 2 === 0 ? m.label : ''))}
+              highlightIndex={peak}
+              color="#FFFFFF"
+              labelColor="#FFFFFF"
+              height={100}
+              showDots={false}
+            />
           </View>
-          <Text style={s.heroTagline}>Gasto anual estimado</Text>
-          <Text style={s.heroAmount}>${annualTotal.toFixed(2)}</Text>
-          <Text style={s.heroSub}>
-            {subscriptions.length} suscripción{subscriptions.length !== 1 ? 'es' : ''} · ${monthlyTotal.toFixed(2)}/mes
-          </Text>
+          <Text style={s.heroFoot}>Mes más caro: {months[peak]?.label} · {moneyShort(months[peak]?.value ?? 0)}</Text>
         </LinearGradient>
 
-        {/* ── Donut + legend ── */}
-        <Text style={[s.sectionHeader, { color: colors.subtext }]}>Distribución de gasto</Text>
-        <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-          <View style={s.donutCenter}>
-            <DonutChart segments={segments} total={monthlyTotal} colors={colors} />
+        {/* Gauges */}
+        <View style={s.gauges}>
+          <Pressable onPress={() => setBudgetOpen(true)} style={[s.gaugeCard, { backgroundColor: colors.surface }]}>
+            <Text style={[s.gaugeTitle, { color: colors.text }]}>Presupuesto</Text>
+            <Gauge value={budgetPct} color={budgetPct > 1 ? colors.urgent : colors.accent}>
+              <Ionicons name="wallet-outline" size={16} color={colors.subtext} />
+              <Text style={[s.gaugeValue, { color: colors.text }]}>{Math.round(budgetPct * 100)}%</Text>
+            </Gauge>
+            <Text style={[s.gaugeFoot, { color: colors.subtext }]}>de {moneyShort(budget)} ✎</Text>
+          </Pressable>
+          <View style={[s.gaugeCard, { backgroundColor: colors.surface }]}>
+            <Text style={[s.gaugeTitle, { color: colors.text }]}>Mensuales</Text>
+            <Gauge value={monthlyShare} color="#7C5CFA">
+              <Ionicons name="repeat" size={16} color={colors.subtext} />
+              <Text style={[s.gaugeValue, { color: colors.text }]}>{Math.round(monthlyShare * 100)}%</Text>
+            </Gauge>
+            <Text style={[s.gaugeFoot, { color: colors.subtext }]}>vs. anuales</Text>
           </View>
-          <View style={[s.legendList, { borderTopColor: colors.separator }]}>
-            {segments.map((seg, i) => (
-              <View key={seg.category}>
-                {i > 0 && <View style={[s.sep, { backgroundColor: colors.separator }]} />}
-                <View style={s.legendItem}>
-                  <View style={[s.legendDot, { backgroundColor: seg.color }]} />
-                  <Text style={[s.legendLabel, { color: colors.text }]}>{seg.label}</Text>
-                  <Text style={[s.legendAmt, { color: colors.subtext }]}>${seg.total.toFixed(2)}/mes</Text>
-                  <Text style={[s.legendPct, { color: seg.color }]}>
-                    {monthlyTotal > 0 ? Math.round(seg.total / monthlyTotal * 100) : 0}%
-                  </Text>
+        </View>
+
+        {/* Dona por categoría */}
+        <SectionHeader title="Por categoría" />
+        <View style={[s.card, { backgroundColor: colors.surface }]}>
+          <View style={{ alignItems: 'center', paddingVertical: 8 }}>
+            <Donut segments={segments.map(sg => ({ value: sg.value, color: sg.color }))}>
+              <Text style={[s.donutValue, { color: colors.text }]}>{moneyShort(monthlyTotal)}</Text>
+              <Text style={[s.donutLabel, { color: colors.subtext }]}>por mes</Text>
+            </Donut>
+          </View>
+          {segments.map(sg => (
+            <View key={sg.cat} style={s.legend}>
+              <View style={[s.legendDot, { backgroundColor: sg.color }]} />
+              <Text style={[s.legendLabel, { color: colors.text }]}>{sg.label}</Text>
+              <Text style={[s.legendAmt, { color: colors.subtext }]}>{money(sg.value)}</Text>
+              <Text style={[s.legendPct, { color: sg.color }]}>{monthlyTotal > 0 ? Math.round((sg.value / monthlyTotal) * 100) : 0}%</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Ranking */}
+        <SectionHeader title="Las más caras" />
+        <View style={[s.card, { backgroundColor: colors.surface, gap: 14 }]}>
+          {top.map((sub, i) => (
+            <Pressable key={sub.id} onPress={() => router.push(`/subscription/${sub.id}`)} style={s.rank}>
+              <Text style={[s.rankNum, { color: colors.muted }]}>{i + 1}</Text>
+              <SubIcon name={sub.name} color={sub.color} size={38} borderRadius={19} />
+              <View style={{ flex: 1, gap: 6 }}>
+                <View style={s.rankTop}>
+                  <Text style={[type.bodyBold, { color: colors.text, flex: 1 }]} numberOfLines={1}>{sub.name}</Text>
+                  <Text style={[s.rankAmt, { color: colors.text }]}>{money(monthlyEquivalent(sub))}</Text>
+                </View>
+                <View style={[s.rankTrack, { backgroundColor: colors.separator }]}>
+                  <LinearGradient
+                    colors={colors.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                    style={[s.rankFill, { width: `${(monthlyEquivalent(sub) / maxTop) * 100}%` }]}
+                  />
                 </View>
               </View>
-            ))}
-          </View>
+            </Pressable>
+          ))}
         </View>
 
-        {/* ── Monthly bars ── */}
-        <Text style={[s.sectionHeader, { color: colors.text }]}>
-          Gasto mensual {new Date().getFullYear()}
-        </Text>
-        <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.cardBorder, padding: 16, paddingBottom: 10 }]}>
-          <MonthlyBars data={monthlyProj} colors={colors} />
-          <Text style={[s.barsNote, { color: colors.subtext }]}>
-            Suscripciones mensuales aparecen cada mes. Las anuales solo en su mes de renovación.
-          </Text>
-        </View>
-
-        {/* ── Optimization tips ── */}
+        {/* Tips */}
         {tips.length > 0 && (
           <>
-            <Text style={[s.sectionHeader, { color: colors.subtext }]}>Puedes optimizar</Text>
-            <View style={s.tipsCol}>
-              {tips.map((tip, i) => (
-                <View key={i} style={[s.tipCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+            <SectionHeader title="Puedes optimizar" />
+            <View style={{ gap: 10, marginHorizontal: spacing.screen }}>
+              {tips.map(tip => (
+                <View key={tip.title} style={[s.tip, { backgroundColor: colors.surface }]}>
                   <View style={[s.tipIcon, { backgroundColor: tip.accent + '22' }]}>
                     <Ionicons name={tip.icon} size={20} color={tip.accent} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={[s.tipTitle, { color: colors.text }]}>{tip.title}</Text>
+                    <Text style={[type.bodyBold, { color: colors.text }]}>{tip.title}</Text>
                     <Text style={[s.tipBody, { color: colors.subtext }]}>{tip.body}</Text>
                   </View>
                 </View>
@@ -298,33 +215,19 @@ export default function StatisticsScreen() {
           </>
         )}
 
-        {/* ── Payment method breakdown — individual cards ── */}
-        {pmGroups.length > 0 && (
-          <>
-            <Text style={[s.sectionHeader, { color: colors.subtext }]}>Por método de pago</Text>
-            <View style={s.pmCardCol}>
-              {pmGroups.map(group => (
-                <View key={group.method} style={[s.pmCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-                  <View style={[s.pmIconWrap, { backgroundColor: colors.accentSoft }]}>
-                    <Ionicons name="card-outline" size={18} color={colors.accent} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[s.pmLabel, { color: colors.text }]}>{group.label}</Text>
-                    <Text style={[s.pmSubs, { color: colors.subtext }]} numberOfLines={1}>
-                      {group.subs.map(sub => sub.name).join(', ')}
-                    </Text>
-                  </View>
-                  <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                    <Text style={[s.pmTotal, { color: colors.text }]}>${group.total.toFixed(2)}</Text>
-                    <View style={[s.pmPeriodPill, { backgroundColor: colors.accentSoft }]}>
-                      <Text style={[s.pmPeriod, { color: colors.accent }]}>por mes</Text>
-                    </View>
-                  </View>
-                </View>
-              ))}
+        {/* Métodos de pago */}
+        <SectionHeader title="Por método de pago" />
+        <View style={[s.card, { backgroundColor: colors.surface, paddingVertical: 4 }]}>
+          {byMethod.map((g, i) => (
+            <View key={g.method} style={[s.method, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.separator }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={[type.bodyBold, { color: colors.text }]}>{PAYMENT_METHOD_LABELS[g.method]}</Text>
+                <Text style={[s.methodSubs, { color: colors.subtext }]} numberOfLines={1}>{g.subs.map(x => x.name).join(', ')}</Text>
+              </View>
+              <Text style={[s.rankAmt, { color: colors.text }]}>{money(g.total)}</Text>
             </View>
-          </>
-        )}
+          ))}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -332,57 +235,39 @@ export default function StatisticsScreen() {
 
 const s = StyleSheet.create({
   root: { flex: 1 },
-  sectionHeader: { fontSize: 17, fontWeight: '700', marginHorizontal: 16, marginTop: 24, marginBottom: 10 },
-  card: { marginHorizontal: 16, borderRadius: 20, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
-  sep: { height: StyleSheet.hairlineWidth, marginLeft: 56 },
-  // Hero
-  heroCard: { marginHorizontal: 16, marginTop: 8, borderRadius: 24, padding: 22, gap: 4, overflow: 'hidden' },
-  heroDec1: { position: 'absolute', width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(255,255,255,0.04)', top: -60, right: -50 },
-  heroDec2: { position: 'absolute', width: 120, height: 120, borderRadius: 60, backgroundColor: 'rgba(255,255,255,0.03)', bottom: -30, left: 20 },
-  heroTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
-  heroScreenTitle: { fontSize: 24, fontWeight: '800', color: '#fff', letterSpacing: -0.5 },
-  heroIconWrap: { width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
-  heroTagline: { fontSize: 13, color: 'rgba(255,255,255,0.65)', fontWeight: '500', marginBottom: 2 },
-  heroAmount: { fontSize: 42, fontWeight: '800', color: '#fff', letterSpacing: -1 },
-  heroSub: { fontSize: 14, color: 'rgba(255,255,255,0.6)', marginTop: 2 },
-  // Donut
-  donutCenter: { alignItems: 'center', paddingVertical: 16 },
-  legendList: { borderTopWidth: StyleSheet.hairlineWidth },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 12 },
-  legendDot: { width: 10, height: 10, borderRadius: 5, flexShrink: 0 },
-  legendLabel: { flex: 1, fontSize: 14, fontWeight: '500' },
-  legendAmt: { fontSize: 13 },
-  legendPct: { fontSize: 14, fontWeight: '700', minWidth: 42, textAlign: 'right' },
-  // Monthly bars
-  barsRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 3 },
-  barCol: { flex: 1, alignItems: 'center', gap: 2 },
-  barTrack: { justifyContent: 'flex-end', width: '100%', alignItems: 'center' },
-  barFill: { width: '100%', borderRadius: 4 },
-  barVal: { fontSize: 8, textAlign: 'center' },
-  barMon: { fontSize: 9, textAlign: 'center' },
-  barsNote: { fontSize: 11, marginTop: 12, lineHeight: 15, textAlign: 'center' },
-  // Tips
-  tipsCol: { marginHorizontal: 16, gap: 10 },
-  tipCard: { flexDirection: 'row', alignItems: 'flex-start', borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, padding: 14, gap: 12 },
-  tipIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  tipTitle: { fontSize: 14, fontWeight: '600', marginBottom: 3 },
-  tipBody: { fontSize: 13, lineHeight: 18 },
-  // Payment method — individual cards
-  pmCardCol: { marginHorizontal: 16, gap: 10 },
-  pmCard: {
-    flexDirection: 'row', alignItems: 'center', borderRadius: 18,
-    borderWidth: StyleSheet.hairlineWidth, padding: 14, gap: 12,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
-  },
-  pmIconWrap: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  pmLabel: { fontSize: 15, fontWeight: '600' },
-  pmSubs: { fontSize: 12, marginTop: 2 },
-  pmTotal: { fontSize: 16, fontWeight: '800' },
-  pmPeriodPill: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
-  pmPeriod: { fontSize: 10, fontWeight: '600' },
-  // Empty
-  emptyContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  emptyText: { fontSize: 17, fontWeight: '600' },
-  emptyHint: { fontSize: 14, textAlign: 'center', marginHorizontal: 32 },
+  hero: { marginHorizontal: spacing.screen, borderRadius: radius.xl, padding: 22, paddingBottom: 16 },
+  heroLabel: { color: 'rgba(255,255,255,0.85)', fontSize: 14, fontWeight: '700' },
+  heroAmount: { color: '#fff', fontSize: 40, fontWeight: '900', letterSpacing: -1.4, marginTop: 2 },
+  heroDec: { fontSize: 20, fontWeight: '800' },
+  heroSub: { color: 'rgba(255,255,255,0.85)', fontSize: 13, fontWeight: '700', marginTop: 2 },
+  heroFoot: { color: 'rgba(255,255,255,0.85)', fontSize: 12, fontWeight: '800', marginTop: 10, textAlign: 'center' },
+
+  gauges: { flexDirection: 'row', gap: 12, marginHorizontal: spacing.screen, marginTop: 14 },
+  gaugeCard: { flex: 1, borderRadius: radius.lg, paddingVertical: 16, alignItems: 'center', gap: 6 },
+  gaugeTitle: { fontSize: 15, fontWeight: '800', alignSelf: 'flex-start', marginLeft: 16 },
+  gaugeValue: { fontSize: 22, fontWeight: '900', letterSpacing: -0.5 },
+  gaugeFoot: { fontSize: 13, fontWeight: '800' },
+
+  card: { marginHorizontal: spacing.screen, borderRadius: radius.lg, padding: 16 },
+  donutValue: { fontSize: 24, fontWeight: '900', letterSpacing: -0.6 },
+  donutLabel: { fontSize: 12, fontWeight: '700' },
+  legend: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9 },
+  legendDot: { width: 12, height: 12, borderRadius: 6 },
+  legendLabel: { flex: 1, fontSize: 14, fontWeight: '700' },
+  legendAmt: { fontSize: 13, fontWeight: '700' },
+  legendPct: { fontSize: 14, fontWeight: '900', minWidth: 40, textAlign: 'right' },
+
+  rank: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  rankNum: { width: 14, fontSize: 14, fontWeight: '900', textAlign: 'center' },
+  rankTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  rankAmt: { fontSize: 15, fontWeight: '900' },
+  rankTrack: { height: 6, borderRadius: 3, overflow: 'hidden' },
+  rankFill: { height: 6, borderRadius: 3 },
+
+  tip: { flexDirection: 'row', gap: 12, borderRadius: radius.md, padding: 14 },
+  tipIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  tipBody: { fontSize: 13, fontWeight: '600', lineHeight: 19, marginTop: 3 },
+
+  method: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
+  methodSubs: { fontSize: 12, fontWeight: '600', marginTop: 2 },
 });

@@ -1,380 +1,219 @@
 import React from 'react';
-import { Alert, ScrollView, StyleSheet, Text, ToastAndroid, TouchableOpacity, View, Platform } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, ToastAndroid, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSubscriptions } from '../../src/hooks/useSubscriptions';
 import { useTheme } from '../../src/hooks/useTheme';
 import { usePaymentCards } from '../../src/hooks/usePaymentCards';
 import { CardChip } from '../../src/components/CardPickerModal';
-import { BrandIcon, getBrandIcon } from '../../src/utils/brandIcons';
-import {
-  CATEGORY_LABELS,
-  PAYMENT_METHOD_LABELS,
-  type PaymentMethod,
-} from '../../src/types';
+import { Gauge, GradientButton, GradientCircle, NotchCard, Tag, type IoniconName } from '../../src/components/ui';
+import { SubIcon } from '../../src/utils/brandIcons';
+import { daysUntilRenewal, monthlyEquivalent, nextRenewalDate, relativeDayLabel } from '../../src/utils/dates';
+import { money, moneyParts, moneyShort } from '../../src/utils/format';
+import { radius, spacing, type } from '../../src/theme/tokens';
+import { CATEGORY_COLORS, CATEGORY_LABELS, PAYMENT_METHOD_LABELS, type PaymentMethod } from '../../src/types';
 
-type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
-
-function paymentIcon(method: PaymentMethod): IoniconName {
-  const map: Record<PaymentMethod, IoniconName> = {
-    credit_card: 'card-outline',
-    debit_card: 'card',
-    paypal: 'logo-paypal',
-    bank_transfer: 'swap-horizontal-outline',
-    cash: 'cash-outline',
-    other: 'ellipsis-horizontal-outline',
-  };
-  return map[method] ?? 'card-outline';
-}
-
-function daysUntil(dateStr: string): number {
-  return Math.ceil((new Date(dateStr + 'T12:00:00').getTime() - Date.now()) / 86400000);
-}
-
-function renewalLabel(dateStr: string): string {
-  const days = daysUntil(dateStr);
-  if (days <= 0) return 'Hoy';
-  if (days === 1) return 'Mañana';
-  if (days < 7) return `En ${days} días`;
-  return new Date(dateStr + 'T12:00:00').toLocaleDateString('es-MX', {
-    day: 'numeric', month: 'long', year: 'numeric',
-  });
-}
+const PAYMENT_ICON: Record<PaymentMethod, IoniconName> = {
+  credit_card: 'card-outline', debit_card: 'card', paypal: 'logo-paypal',
+  bank_transfer: 'swap-horizontal-outline', cash: 'cash-outline', other: 'ellipsis-horizontal',
+};
 
 export default function SubscriptionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { subscriptions, remove } = useSubscriptions();
-  const { colors, dark } = useTheme();
+  const { subscriptions, remove, monthlyTotal } = useSubscriptions();
+  const { colors } = useTheme();
   const { cards } = usePaymentCards();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
-  // Real-time from Firestore context — always up to date
   const sub = subscriptions.find(s => s.id === id) ?? null;
-  const linkedCard = sub?.card_id ? (cards.find(c => c.id === sub.card_id) ?? null) : null;
+  const linkedCard = sub?.card_id ? cards.find(c => c.id === sub.card_id) ?? null : null;
 
   if (!sub) {
     return (
-      <SafeAreaView edges={['bottom']} style={[s.root, { backgroundColor: colors.bg }]}>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ color: colors.subtext }}>Cargando…</Text>
-        </View>
-      </SafeAreaView>
+      <View style={[s.root, s.center, { backgroundColor: colors.bg }]}>
+        <Text style={{ color: colors.subtext }}>Cargando…</Text>
+      </View>
     );
   }
 
-  const days = daysUntil(sub.next_renewal);
-  const label = renewalLabel(sub.next_renewal);
-  const isUrgent = days <= 7;
-  const annualCost = sub.billing_cycle === 'yearly' ? sub.price : sub.price * 12;
+  const days = daysUntilRenewal(sub);
+  const next = nextRenewalDate(sub);
+  const urgent = days <= 3;
+  const cycleDays = sub.billing_cycle === 'yearly' ? 365 : 30;
+  const cycleProgress = Math.max(0, Math.min(1, 1 - days / cycleDays));
+  const monthly = monthlyEquivalent(sub);
+  const share = monthlyTotal > 0 ? monthly / monthlyTotal : 0;
+  const annual = monthly * 12;
+  const monthsActive = Math.max(0, Math.floor((Date.now() - new Date(sub.created_at).getTime()) / (30.44 * 86400000)));
+  const paidApprox = monthsActive * monthly;
+  const { int, dec } = moneyParts(sub.price);
 
   const handleDelete = () => {
-    Alert.alert(
-      'Eliminar suscripción',
-      `¿Eliminar ${sub.name}? Esta acción no se puede deshacer.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            await remove(sub);
-            router.back();
-          },
-        },
-      ],
-    );
+    Alert.alert('Eliminar suscripción', `¿Eliminar ${sub.name}? Esta acción no se puede deshacer.`, [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Eliminar', style: 'destructive', onPress: async () => { await remove(sub); router.back(); } },
+    ]);
   };
 
+  const copyClabe = async (clabe: string) => {
+    await Clipboard.setStringAsync(clabe);
+    if (Platform.OS === 'android') ToastAndroid.show('CLABE copiada', ToastAndroid.SHORT);
+    else Alert.alert('Copiada', 'CLABE copiada al portapapeles');
+  };
+
+  const rows: { icon: IoniconName; label: string; value: string; tint: string }[] = [
+    { icon: 'calendar', label: 'Próximo cobro', value: next.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }), tint: urgent ? colors.urgent : colors.accent },
+    { icon: 'repeat', label: 'Ciclo', value: sub.billing_cycle === 'monthly' ? 'Mensual' : 'Anual', tint: colors.success },
+    { icon: PAYMENT_ICON[sub.payment_method] ?? 'card-outline', label: 'Método de pago', value: PAYMENT_METHOD_LABELS[sub.payment_method] ?? 'Otro', tint: '#7C5CFA' },
+    { icon: sub.remind_me ? 'notifications' : 'notifications-off', label: 'Recordatorio', value: sub.remind_me ? '1 día antes' : 'Desactivado', tint: colors.warning },
+    { icon: 'time', label: 'Agregada', value: new Date(sub.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }), tint: colors.subtext },
+  ];
+
   return (
-    <SafeAreaView edges={['bottom']} style={[s.root, { backgroundColor: colors.bg }]}>
-      <Stack.Screen options={{ title: sub.name }} />
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
+    <View style={[s.root, { backgroundColor: colors.bg }]}>
+      <Stack.Screen options={{ title: '' }} />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}>
 
-        {/* Hero */}
-        {(() => {
-          const brandIcon = getBrandIcon('', sub.name);
-          return (
-            <View style={[s.hero, { backgroundColor: brandIcon ? `#${brandIcon.hex}18` : sub.color }]}>
-              {brandIcon ? (
-                <BrandIcon icon={brandIcon} size={72} />
-              ) : (
-                <Text style={s.heroLetter}>{sub.name[0].toUpperCase()}</Text>
-              )}
-              <Text style={[s.heroName, { color: brandIcon ? `#${brandIcon.hex}` : '#fff' }]}>
-                {sub.name}
-              </Text>
-              <Text style={[s.heroCategory, { color: brandIcon ? `#${brandIcon.hex}99` : 'rgba(255,255,255,0.75)' }]}>
-                {CATEGORY_LABELS[sub.category]}
-              </Text>
-            </View>
-          );
-        })()}
-
-        {/* Summary cards */}
-        <View style={s.summaryRow}>
-          <View style={[s.summaryCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-            <Text style={[s.summaryValue, { color: colors.text }]}>${sub.price.toFixed(2)}</Text>
-            <Text style={[s.summaryLabel, { color: colors.subtext }]}>
-              {sub.billing_cycle === 'monthly' ? 'por mes' : 'por año'}
-            </Text>
+        {/* Hero con muesca */}
+        <NotchCard
+          fill={colors.surface}
+          notch={84}
+          style={s.hero}
+          badge={<GradientCircle size={62} icon="pencil" iconSize={24} onPress={() => router.push(`/subscription/new?id=${sub.id}`)} accessibilityLabel="Editar" />}
+        >
+          <View style={{ paddingRight: 84 }}>
+            <Tag label={CATEGORY_LABELS[sub.category]} color={CATEGORY_COLORS[sub.category]} solid />
+            <Text style={[s.heroName, { color: colors.text }]} numberOfLines={2}>{sub.name}</Text>
           </View>
-          <View style={[s.summaryCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-            <Text style={[s.summaryValue, { color: isUrgent ? colors.urgent : colors.accent }]}>{label}</Text>
-            <Text style={[s.summaryLabel, { color: colors.subtext }]}>próximo cobro</Text>
+          <Text style={[s.heroDesc, { color: colors.text }]} numberOfLines={3}>
+            {sub.description?.trim() || `${relativeDayLabel(days)} se cobra en tu ${PAYMENT_METHOD_LABELS[sub.payment_method]?.toLowerCase() ?? 'método de pago'}.`}
+          </Text>
+          <View style={s.heroBottom}>
+            <View>
+              <Text style={[s.heroPrice, { color: colors.text }]}>{int}<Text style={s.heroDec}>.{dec}</Text></Text>
+              <Text style={[s.heroPer, { color: colors.subtext }]}>{sub.billing_cycle === 'monthly' ? 'por mes' : 'por año'}</Text>
+            </View>
+            <SubIcon name={sub.name} color={sub.color} size={96} borderRadius={48} />
           </View>
-        </View>
+        </NotchCard>
 
-        {/* Detail info cards — 2×2 grid */}
-        <Text style={[s.sectionHeader, { color: colors.subtext }]}>Detalles</Text>
-        <View style={s.infoGrid}>
-          {/* Próximo cobro */}
-          <View style={[s.infoCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-            <View style={[s.infoIconWrap, { backgroundColor: isUrgent ? (dark ? '#4C0519' : '#FEF2F2') : (dark ? '#1E3A5F' : '#EFF6FF') }]}>
-              <Ionicons name="calendar-outline" size={18} color={isUrgent ? colors.urgent : '#3B82F6'} />
-            </View>
-            <Text style={[s.infoLabel, { color: colors.subtext }]}>Próximo cobro</Text>
-            <Text style={[s.infoValue, { color: isUrgent ? colors.urgent : colors.text }]}>{label}</Text>
-            <View style={[s.infoPill, { backgroundColor: isUrgent ? (dark ? '#4C0519' : '#FEF2F2') : colors.accentSoft }]}>
-              <Text style={[s.infoPillText, { color: isUrgent ? colors.urgent : colors.accent }]}>{sub.next_renewal}</Text>
-            </View>
+        {/* Gauges */}
+        <View style={s.gauges}>
+          <View style={[s.gaugeCard, { backgroundColor: colors.surface }]}>
+            <Text style={[s.gaugeTitle, { color: colors.text }]}>Siguiente cobro</Text>
+            <Gauge value={cycleProgress} color={urgent ? colors.urgent : colors.accent}>
+              <Ionicons name="hourglass-outline" size={16} color={colors.subtext} />
+              <Text style={[s.gaugeValue, { color: colors.text }]}>{Math.max(days, 0)}</Text>
+              <Text style={[s.gaugeUnit, { color: colors.subtext }]}>{days === 1 ? 'día' : 'días'}</Text>
+            </Gauge>
+            <Text style={[s.gaugeFoot, { color: colors.subtext }]}>{relativeDayLabel(days)}</Text>
           </View>
-
-          {/* Ciclo de cobro */}
-          <View style={[s.infoCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-            <View style={[s.infoIconWrap, {
-              backgroundColor: sub.billing_cycle === 'monthly'
-                ? (dark ? '#052E16' : '#F0FDF4')
-                : (dark ? '#431407' : '#FFF7ED'),
-            }]}>
-              <Ionicons name="repeat-outline" size={18} color={sub.billing_cycle === 'monthly' ? '#16A34A' : '#EA580C'} />
-            </View>
-            <Text style={[s.infoLabel, { color: colors.subtext }]}>Ciclo</Text>
-            <Text style={[s.infoValue, { color: colors.text }]}>
-              {sub.billing_cycle === 'monthly' ? 'Mensual' : 'Anual'}
-            </Text>
-            <View style={[s.infoPill, {
-              backgroundColor: sub.billing_cycle === 'monthly'
-                ? (dark ? '#052E16' : '#F0FDF4')
-                : (dark ? '#431407' : '#FFF7ED'),
-            }]}>
-              <Text style={[s.infoPillText, { color: sub.billing_cycle === 'monthly' ? '#16A34A' : '#EA580C' }]}>
-                {sub.billing_cycle === 'monthly' ? 'Cada mes' : 'Cada año'}
-              </Text>
-            </View>
-          </View>
-
-          {/* Método de pago */}
-          <View style={[s.infoCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-            <View style={[s.infoIconWrap, { backgroundColor: dark ? '#2E1065' : '#F5F3FF' }]}>
-              <Ionicons name={paymentIcon(sub.payment_method)} size={18} color="#7C3AED" />
-            </View>
-            <Text style={[s.infoLabel, { color: colors.subtext }]}>Pago</Text>
-            <Text style={[s.infoValue, { color: colors.text }]} numberOfLines={1}>
-              {PAYMENT_METHOD_LABELS[sub.payment_method] ?? 'Otro'}
-            </Text>
-          </View>
-
-          {/* Recordatorio */}
-          <View style={[s.infoCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-            <View style={[s.infoIconWrap, {
-              backgroundColor: sub.remind_me
-                ? (dark ? '#422006' : '#FEF9C3')
-                : (dark ? '#1E293B' : '#F1F5F9'),
-            }]}>
-              <Ionicons
-                name={sub.remind_me ? 'notifications' : 'notifications-off-outline'}
-                size={18}
-                color={sub.remind_me ? '#CA8A04' : colors.subtext}
-              />
-            </View>
-            <Text style={[s.infoLabel, { color: colors.subtext }]}>Recordatorio</Text>
-            <View style={[s.infoPill, {
-              backgroundColor: sub.remind_me
-                ? (dark ? '#422006' : '#FEF9C3')
-                : (dark ? '#1E293B' : '#F1F5F9'),
-            }]}>
-              <Text style={[s.infoPillText, { color: sub.remind_me ? '#CA8A04' : colors.subtext }]}>
-                {sub.remind_me ? '1 día antes' : 'Desactivado'}
-              </Text>
-            </View>
+          <View style={[s.gaugeCard, { backgroundColor: colors.surface }]}>
+            <Text style={[s.gaugeTitle, { color: colors.text }]}>De tu gasto</Text>
+            <Gauge value={share} color="#7C5CFA">
+              <Ionicons name="pie-chart-outline" size={16} color={colors.subtext} />
+              <Text style={[s.gaugeValue, { color: colors.text }]}>{Math.round(share * 100)}%</Text>
+            </Gauge>
+            <Text style={[s.gaugeFoot, { color: colors.subtext }]}>{money(monthly)}/mes</Text>
           </View>
         </View>
 
-        {/* Fecha de alta — full width info card */}
-        <View style={[s.infoCardWide, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-          <View style={[s.infoIconWrap, { backgroundColor: dark ? '#052E16' : '#F0FDF4' }]}>
-            <Ionicons name="time-outline" size={18} color="#16A34A" />
+        {/* Insights */}
+        <View style={s.insights}>
+          <View style={[s.insight, { backgroundColor: colors.accentSoft }]}>
+            <Text style={[s.insightLabel, { color: colors.accent }]}>Al año</Text>
+            <Text style={[s.insightValue, { color: colors.text }]}>{moneyShort(annual)}</Text>
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={[s.infoLabel, { color: colors.subtext }]}>Agregada el</Text>
-            <Text style={[s.infoValue, { color: colors.text }]}>
-              {new Date(sub.created_at).toLocaleDateString('es-MX', {
-                day: 'numeric', month: 'long', year: 'numeric',
-              })}
-            </Text>
+          <View style={[s.insight, { backgroundColor: colors.successSoft }]}>
+            <Text style={[s.insightLabel, { color: colors.success }]}>Pagado aprox.</Text>
+            <Text style={[s.insightValue, { color: colors.text }]}>{moneyShort(paidApprox)}</Text>
           </View>
-          <Ionicons name="checkmark-circle" size={20} color="#16A34A" />
         </View>
 
-        {/* Linked card */}
+        {/* Detalles */}
+        <Text style={[s.section, { color: colors.text }]}>Detalles</Text>
+        <View style={[s.list, { backgroundColor: colors.surface }]}>
+          {rows.map((row, i) => (
+            <View key={row.label} style={[s.row, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.separator }]}>
+              <View style={[s.rowIcon, { backgroundColor: row.tint + '1F' }]}>
+                <Ionicons name={row.icon} size={17} color={row.tint} />
+              </View>
+              <Text style={[s.rowLabel, { color: colors.subtext }]} numberOfLines={1}>{row.label}</Text>
+              <Text style={[s.rowValue, { color: colors.text }]} numberOfLines={1}>{row.value}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Tarjeta vinculada */}
         {linkedCard && (
           <>
-            <Text style={[s.sectionHeader, { color: colors.subtext }]}>Tarjeta / CLABE</Text>
-            <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-              {linkedCard.kind === 'clabe' && linkedCard.clabe ? (
-                /* CLABE: show alias + full number + copy button in one clean row */
-                <TouchableOpacity
-                  style={[s.row, { gap: 12, alignItems: 'flex-start', paddingVertical: 16 }]}
-                  onPress={async () => {
-                    await Clipboard.setStringAsync(linkedCard.clabe!);
-                    if (Platform.OS === 'android') ToastAndroid.show('CLABE copiada', ToastAndroid.SHORT);
-                    else Alert.alert('Copiada', 'CLABE copiada al portapapeles');
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <View style={[s.clabeIcon, { backgroundColor: colors.accentSoft }]}>
-                    <Ionicons name="swap-horizontal-outline" size={20} color={colors.accent} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[s.rowLabel, { color: colors.text }]}>{linkedCard.alias}</Text>
-                    <Text style={{ fontSize: 12, color: colors.subtext, marginTop: 1 }}>{linkedCard.bank}</Text>
-                    <Text style={[s.clabeNumber, { color: colors.accent }]}>
-                      {linkedCard.clabe!.replace(/(\d{4})(?=\d)/g, '$1 ')}
-                    </Text>
-                  </View>
-                  <View style={[s.copyBtn, { backgroundColor: colors.accentSoft }]}>
-                    <Ionicons name="copy-outline" size={14} color={colors.accent} />
-                    <Text style={[s.copyText, { color: colors.accent }]}>Copiar</Text>
-                  </View>
-                </TouchableOpacity>
-              ) : (
-                /* Card: show chip with brand + digits */
-                <View style={[s.row, { gap: 12 }]}>
-                  <Ionicons name="card-outline" size={18} color={colors.subtext} style={s.rowIcon} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={[s.rowLabel, { color: colors.text }]}>{linkedCard.alias}</Text>
-                    <Text style={{ fontSize: 13, color: colors.subtext, marginTop: 2 }}>{linkedCard.bank}</Text>
-                  </View>
-                  <CardChip card={linkedCard} colors={colors} />
-                </View>
-              )}
-            </View>
-          </>
-        )}
-
-        {/* Notes */}
-        {!!sub.description && (
-          <>
-            <Text style={[s.sectionHeader, { color: colors.subtext }]}>Notas</Text>
-            <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-              <View style={[s.row, { alignItems: 'flex-start' }]}>
-                <Ionicons name="document-text-outline" size={18} color={colors.subtext} style={s.rowIcon} />
-                <Text style={[s.rowLabel, { color: colors.text, lineHeight: 22 }]}>{sub.description}</Text>
+            <Text style={[s.section, { color: colors.text }]}>Tarjeta / CLABE</Text>
+            <Pressable
+              disabled={!(linkedCard.kind === 'clabe' && linkedCard.clabe)}
+              onPress={() => linkedCard.clabe && copyClabe(linkedCard.clabe)}
+              style={[s.list, s.cardRow, { backgroundColor: colors.surface }]}
+            >
+              <View style={{ flex: 1, gap: 4 }}>
+                <Text style={[type.bodyBold, { color: colors.text }]}>{linkedCard.alias}</Text>
+                {linkedCard.kind === 'clabe' && linkedCard.clabe
+                  ? <Text style={[s.clabe, { color: colors.accent }]}>{linkedCard.clabe.replace(/(\d{4})(?=\d)/g, '$1 ')}</Text>
+                  : <Text style={{ color: colors.subtext, fontWeight: '600' }}>{linkedCard.bank}</Text>}
               </View>
-            </View>
+              {linkedCard.kind === 'clabe'
+                ? <Ionicons name="copy-outline" size={20} color={colors.accent} />
+                : <CardChip card={linkedCard} colors={colors} />}
+            </Pressable>
           </>
         )}
 
-        {/* Annual projection */}
-        <View style={[s.projCard, { backgroundColor: colors.accentSoft, borderColor: colors.cardBorder }]}>
-          <View style={[s.projIcon, { backgroundColor: colors.accent }]}>
-            <Ionicons name="trending-up-outline" size={20} color="#fff" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={[s.projTitle, { color: colors.subtext }]}>Gasto anual estimado</Text>
-            <Text style={[s.projAmount, { color: colors.accent }]}>${annualCost.toFixed(2)}</Text>
-          </View>
-        </View>
-
-        {/* Actions */}
-        <View style={s.actionsRow}>
-          <TouchableOpacity
-            style={[s.actionCard, { backgroundColor: colors.primary }]}
-            onPress={() => router.push(`/subscription/new?id=${sub.id}`)}
-            activeOpacity={0.8}
-          >
-            <View style={s.actionCardIcon}>
-              <Ionicons name="pencil-outline" size={20} color={colors.primaryText} />
-            </View>
-            <Text style={[s.actionCardLabel, { color: colors.primaryText }]}>Editar</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[s.actionCard, { backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.urgent }]}
-            onPress={handleDelete}
-            activeOpacity={0.8}
-          >
-            <View style={[s.actionCardIcon, { backgroundColor: '#FEF2F222' }]}>
-              <Ionicons name="trash-outline" size={20} color={colors.urgent} />
-            </View>
-            <Text style={[s.actionCardLabel, { color: colors.urgent }]}>Eliminar</Text>
-          </TouchableOpacity>
+        {/* Acciones */}
+        <View style={s.actions}>
+          <GradientButton label="Editar" icon="pencil" onPress={() => router.push(`/subscription/new?id=${sub.id}`)} style={{ flex: 1 }} />
+          <Pressable onPress={handleDelete} style={[s.delete, { borderColor: colors.urgent }]} accessibilityRole="button" accessibilityLabel="Eliminar suscripción">
+            <Ionicons name="trash-outline" size={20} color={colors.urgent} />
+          </Pressable>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const s = StyleSheet.create({
   root: { flex: 1 },
-  hero: { margin: 16, borderRadius: 24, paddingVertical: 36, alignItems: 'center', gap: 6 },
-  heroLetter: { fontSize: 60, fontWeight: '800', color: '#fff', lineHeight: 68 },
-  heroName: { fontSize: 24, fontWeight: '700', color: '#fff' },
-  heroCategory: { fontSize: 14, color: 'rgba(255,255,255,0.75)' },
-  summaryRow: { flexDirection: 'row', marginHorizontal: 16, gap: 12 },
-  summaryCard: { flex: 1, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, padding: 16, alignItems: 'center', gap: 4 },
-  summaryValue: { fontSize: 20, fontWeight: '700' },
-  summaryLabel: { fontSize: 13 },
-  sectionHeader: { fontSize: 15, fontWeight: '700', marginHorizontal: 16, marginTop: 24, marginBottom: 10 },
-  card: { marginHorizontal: 16, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
-  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },
-  rowIcon: { marginRight: 12 },
-  rowLabel: { flex: 1, fontSize: 15 },
-  rowValue: { fontSize: 15 },
-  sep: { height: StyleSheet.hairlineWidth, marginLeft: 46 },
+  center: { alignItems: 'center', justifyContent: 'center' },
 
-  // Info cards grid
-  infoGrid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: 16, gap: 10 },
-  infoCard: {
-    width: '47.5%', borderRadius: 18, borderWidth: StyleSheet.hairlineWidth,
-    padding: 14, gap: 6,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
-  },
-  infoCardWide: {
-    flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginTop: 10,
-    borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, padding: 14, gap: 12,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
-  },
-  infoIconWrap: { width: 36, height: 36, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
-  infoLabel: { fontSize: 11, fontWeight: '600', letterSpacing: 0.2 },
-  infoValue: { fontSize: 14, fontWeight: '700', lineHeight: 18 },
-  infoPill: { alignSelf: 'flex-start', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
-  infoPillText: { fontSize: 10, fontWeight: '600' },
+  hero: { marginHorizontal: spacing.screen, marginTop: 8, padding: 22, minHeight: 260 },
+  heroName: { fontSize: 36, fontWeight: '900', letterSpacing: -1.2, lineHeight: 40, marginTop: 14 },
+  heroDesc: { fontSize: 14, fontWeight: '700', lineHeight: 20, marginTop: 12, maxWidth: '80%' },
+  heroBottom: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 18 },
+  heroPrice: { fontSize: 36, fontWeight: '900', letterSpacing: -1.2 },
+  heroDec: { fontSize: 18, fontWeight: '800' },
+  heroPer: { fontSize: 13, fontWeight: '700' },
 
-  projCard: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginTop: 16, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, padding: 16, gap: 14 },
-  projIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  projTitle: { fontSize: 13 },
-  projAmount: { fontSize: 24, fontWeight: '700', marginTop: 2 },
-  clabeIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  clabeNumber: { fontSize: 14, fontWeight: '600', letterSpacing: 1.5, marginTop: 6 },
-  copyBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
-  copyText: { fontSize: 13, fontWeight: '600' },
+  gauges: { flexDirection: 'row', gap: 12, marginHorizontal: spacing.screen, marginTop: 14 },
+  gaugeCard: { flex: 1, borderRadius: radius.lg, paddingVertical: 16, alignItems: 'center', gap: 6 },
+  gaugeTitle: { fontSize: 14, fontWeight: '800', alignSelf: 'flex-start', marginLeft: 16 },
+  gaugeValue: { fontSize: 22, fontWeight: '900', letterSpacing: -0.5 },
+  gaugeUnit: { fontSize: 11, fontWeight: '700', marginTop: -2 },
+  gaugeFoot: { fontSize: 13, fontWeight: '800' },
 
-  // Action buttons (card-style)
-  actionsRow: { flexDirection: 'row', marginHorizontal: 16, marginTop: 24, gap: 12 },
-  actionCard: {
-    flex: 1, borderRadius: 18, padding: 18, alignItems: 'center', gap: 10,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.12, shadowRadius: 10, elevation: 4,
-  },
-  actionCardIcon: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  actionCardLabel: { fontSize: 15, fontWeight: '700' },
+  insights: { flexDirection: 'row', gap: 12, marginHorizontal: spacing.screen, marginTop: 12 },
+  insight: { flex: 1, borderRadius: radius.md, padding: 14, gap: 4 },
+  insightLabel: { fontSize: 12, fontWeight: '800' },
+  insightValue: { fontSize: 22, fontWeight: '900', letterSpacing: -0.6 },
+
+  section: { ...type.h2, marginHorizontal: spacing.screen, marginTop: 26, marginBottom: 12 },
+  list: { marginHorizontal: spacing.screen, borderRadius: radius.lg, overflow: 'hidden' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14 },
+  rowIcon: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  rowLabel: { flex: 1, fontSize: 14, fontWeight: '700' },
+  rowValue: { fontSize: 14, fontWeight: '800', maxWidth: '55%' },
+  cardRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16 },
+  clabe: { fontSize: 14, fontWeight: '800', letterSpacing: 1.2 },
+
+  actions: { flexDirection: 'row', gap: 12, marginHorizontal: spacing.screen, marginTop: 28 },
+  delete: { width: 58, borderRadius: 29, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
 });

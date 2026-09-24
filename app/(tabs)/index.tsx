@@ -1,429 +1,204 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet,
-  Text, TextInput, TouchableOpacity, View,
-} from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import React, { useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { isExpoGo } from '../../src/utils/env';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { GlassContainer, GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useSubscriptions } from '../../src/hooks/useSubscriptions';
+import { useAuth } from '../../src/hooks/useAuth';
 import { useTheme } from '../../src/hooks/useTheme';
-import { CATEGORY_COLORS, CATEGORY_LABELS, type Category, type Subscription } from '../../src/types';
-import { SubIcon } from '../../src/utils/brandIcons';
+import BudgetModal from '../../src/components/BudgetModal';
+import {
+  AreaChart, EmptyState, FeaturedSubscriptionCard, FilterPills, IconButton,
+  PressableScale, SearchField, SectionHeader, SubscriptionRow, UpcomingTile, useTabBarSpace,
+} from '../../src/components/ui';
+import { daysUntilRenewal, greeting, MONTHS_SHORT, totalForMonth } from '../../src/utils/dates';
+import { moneyParts, moneyShort, pluralize } from '../../src/utils/format';
+import { radius, spacing, type } from '../../src/theme/tokens';
+import type { Subscription } from '../../src/types';
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
+type Filter = 'all' | 'monthly' | 'yearly';
 
-function daysUntilRenewal(dateStr: string): number {
-  return Math.ceil((new Date(dateStr + 'T12:00:00').getTime() - Date.now()) / 86400000);
-}
-
-function renewalBadgeLabel(dateStr: string): string {
-  const days = daysUntilRenewal(dateStr);
-  if (days <= 0) return 'Hoy';
-  if (days === 1) return 'Mañana';
-  return `${days} días`;
-}
-
-function getGreeting(): string {
-  const h = new Date().getHours();
-  if (h < 12) return 'Buenos días';
-  if (h < 19) return 'Buenas tardes';
-  return 'Buenas noches';
-}
-
-function getDateLabel(): string {
-  return new Date().toLocaleDateString('es-MX', {
-    weekday: 'long', day: 'numeric', month: 'long',
-  });
-}
-
-// ── Add button ─────────────────────────────────────────────────────────────────
-
-function AddButton({ onPress }: { onPress: () => void }) {
+export default function HomeScreen() {
+  const { subscriptions, loading, monthlyTotal, budget } = useSubscriptions();
+  const { user } = useAuth();
   const { colors } = useTheme();
-  const useGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
-
-  if (useGlass) {
-    return (
-      <GlassContainer style={s.addGlassOuter}>
-        <GlassView glassEffectStyle="regular" style={s.addGlassInner}>
-          <TouchableOpacity onPress={onPress} style={s.addBtnTouch} activeOpacity={0.7}>
-            <Ionicons name="add" size={26} color={colors.accent} />
-          </TouchableOpacity>
-        </GlassView>
-      </GlassContainer>
-    );
-  }
-
-  return (
-    <TouchableOpacity
-      style={[s.addBtnFallback, { backgroundColor: colors.primary }]}
-      onPress={onPress}
-      activeOpacity={0.8}
-    >
-      <Ionicons name="add" size={22} color={colors.primaryText} />
-      <Text style={[s.addBtnLabel, { color: colors.primaryText }]}>Nueva</Text>
-    </TouchableOpacity>
-  );
-}
-
-// ── Budget modal ───────────────────────────────────────────────────────────────
-
-const BUDGET_KEY = '@subs_budget';
-const DEFAULT_BUDGET = 500;
-
-function BudgetModal({ visible, current, colors, onSave, onClose }: {
-  visible: boolean;
-  current: number;
-  colors: ReturnType<typeof useTheme>['colors'];
-  onSave: (value: number) => void;
-  onClose: () => void;
-}) {
-  const [raw, setRaw] = useState('');
-  const inputRef = useRef<TextInput>(null);
-
-  useEffect(() => {
-    if (visible) setRaw(current.toFixed(2));
-  }, [visible, current]);
-
-  const handleSave = () => {
-    const value = parseFloat(raw.replace(',', '.'));
-    if (!isNaN(value) && value > 0) onSave(value);
-    onClose();
-  };
-
-  return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={bm.overlay}
-      >
-        <TouchableOpacity style={bm.scrim} activeOpacity={1} onPress={onClose} />
-        <View style={[bm.dialog, { backgroundColor: colors.card }]}>
-          <Text style={[bm.title, { color: colors.text }]}>Presupuesto mensual</Text>
-          <Text style={[bm.subtitle, { color: colors.subtext }]}>
-            ¿Cuánto quieres gastar al mes en suscripciones?
-          </Text>
-          <View style={[bm.inputWrap, { backgroundColor: colors.bg, borderColor: colors.cardBorder }]}>
-            <Text style={[bm.currency, { color: colors.subtext }]}>$</Text>
-            <TextInput
-              ref={inputRef}
-              style={[bm.input, { color: colors.text }]}
-              value={raw}
-              onChangeText={setRaw}
-              keyboardType="decimal-pad"
-              autoFocus
-              selectTextOnFocus
-              returnKeyType="done"
-              onSubmitEditing={handleSave}
-            />
-          </View>
-          <View style={bm.btns}>
-            <TouchableOpacity style={[bm.btn, { backgroundColor: colors.separator }]} onPress={onClose}>
-              <Text style={[bm.btnText, { color: colors.text }]}>Cancelar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[bm.btn, { backgroundColor: colors.accent }]} onPress={handleSave}>
-              <Text style={[bm.btnText, { color: '#fff' }]}>Guardar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
-  );
-}
-
-const bm = StyleSheet.create({
-  overlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)' },
-  dialog: { width: '82%', borderRadius: 24, padding: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.18, shadowRadius: 24, elevation: 12 },
-  title: { fontSize: 18, fontWeight: '800', marginBottom: 6 },
-  subtitle: { fontSize: 14, lineHeight: 20, marginBottom: 20 },
-  inputWrap: { flexDirection: 'row', alignItems: 'center', borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 20, gap: 6 },
-  currency: { fontSize: 22, fontWeight: '600' },
-  input: { flex: 1, fontSize: 30, fontWeight: '700' },
-  btns: { flexDirection: 'row', gap: 10 },
-  btn: { flex: 1, paddingVertical: 14, borderRadius: 14, alignItems: 'center' },
-  btnText: { fontSize: 15, fontWeight: '700' },
-});
-
-// ── Upcoming card ──────────────────────────────────────────────────────────────
-
-function UpcomingCard({ sub, idx, onPress }: { sub: Subscription; idx: number; onPress: () => void }) {
-  const { colors } = useTheme();
-  const days = daysUntilRenewal(sub.next_renewal);
-  const label = renewalBadgeLabel(sub.next_renewal);
-  const isUrgent = days <= 3;
-  const accent = isUrgent ? '#EF4444' : sub.color;
-
-  return (
-    <TouchableOpacity
-      style={[s.upCard, {
-        backgroundColor: colors.card,
-        borderColor: colors.cardBorder,
-        borderLeftColor: accent,
-      }]}
-      onPress={onPress}
-      activeOpacity={0.75}
-    >
-      <SubIcon name={sub.name} color={sub.color} size={44} borderRadius={13} />
-      <Text style={[s.upName, { color: colors.text }]} numberOfLines={1}>{sub.name}</Text>
-      <Text style={[s.upPrice, { color: colors.subtext }]}>${sub.price.toFixed(2)}</Text>
-      <View style={[s.upBadge, { backgroundColor: accent + '20' }]}>
-        <Text style={[s.upBadgeText, { color: isUrgent ? colors.urgent : accent }]}>{label}</Text>
-      </View>
-    </TouchableOpacity>
-  );
-}
-
-// ── Dashboard ──────────────────────────────────────────────────────────────────
-
-export default function DashboardScreen() {
-  const { subscriptions, loading, monthlyTotal } = useSubscriptions();
-  const { colors, dark } = useTheme();
-  const insets = useSafeAreaInsets();
   const router = useRouter();
+  const bottom = useTabBarSpace();
 
-  const [budget, setBudget] = useState(DEFAULT_BUDGET);
-  const [budgetModalVisible, setBudgetModalVisible] = useState(false);
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState<Filter>('all');
+  const [budgetOpen, setBudgetOpen] = useState(false);
 
-  useEffect(() => {
-    AsyncStorage.getItem(BUDGET_KEY).then(val => {
-      if (val) setBudget(parseFloat(val));
+  const firstName = (user?.displayName ?? '').split(' ')[0];
+  const open = (sub: Subscription) => router.push(`/subscription/${sub.id}`);
+
+  // Próximos 6 meses de cobros reales (mensuales + anuales que caen en cada mes)
+  const trend = useMemo(() => {
+    const now = new Date();
+    return Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+      return { label: MONTHS_SHORT[d.getMonth()], value: totalForMonth(subscriptions, d.getFullYear(), d.getMonth()) };
     });
-  }, []);
+  }, [subscriptions]);
 
-  const saveBudget = async (value: number) => {
-    setBudget(value);
-    await AsyncStorage.setItem(BUDGET_KEY, String(value));
-  };
+  const [featured, ...rest] = subscriptions;
+  const upcoming = useMemo(
+    () => rest.filter(s => daysUntilRenewal(s) <= 14),
+    [rest],
+  );
 
-  const upcoming: Subscription[] = useMemo(() =>
-    subscriptions.filter(s => {
-      const d = daysUntilRenewal(s.next_renewal);
-      return d >= 0 && d <= 14;
-    }), [subscriptions]);
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return subscriptions.filter(s =>
+      (filter === 'all' || s.billing_cycle === filter) &&
+      (!q || s.name.toLowerCase().includes(q) || (s.description ?? '').toLowerCase().includes(q)),
+    );
+  }, [subscriptions, filter, query]);
 
-  const pct = Math.min((monthlyTotal / budget) * 100, 100);
-  const isOverBudget = pct >= 85;
-
-  const navigateTo = (sub: Subscription) => router.push(`/subscription/${sub.id}`);
+  const pct = budget > 0 ? monthlyTotal / budget : 0;
+  const overBudget = pct > 1;
+  const { int, dec } = moneyParts(monthlyTotal);
+  const urgentCount = subscriptions.filter(s => daysUntilRenewal(s) <= 3).length;
+  const searching = query.trim().length > 0;
 
   return (
     <SafeAreaView edges={['top']} style={[s.root, { backgroundColor: colors.bg }]}>
-      <BudgetModal
-        visible={budgetModalVisible}
-        current={budget}
-        colors={colors}
-        onSave={saveBudget}
-        onClose={() => setBudgetModalVisible(false)}
-      />
+      <BudgetModal visible={budgetOpen} onClose={() => setBudgetOpen(false)} />
 
       {/* ── Header ── */}
       <View style={s.header}>
-        <View>
-          <Text style={[s.dateLabel, { color: colors.subtext }]}>
-            {getDateLabel()}
-          </Text>
-          <Text style={[s.greeting, { color: colors.text }]}>
-            {getGreeting()} 👋
-          </Text>
-        </View>
-        <View style={s.headerRight}>
-          <TouchableOpacity style={[s.notifBtn, { backgroundColor: colors.card }]}>
-            <Ionicons name="notifications-outline" size={20} color={colors.subtext} />
-          </TouchableOpacity>
-          <AddButton onPress={() => router.push('/subscription/new')} />
-        </View>
+        <LinearGradient colors={colors.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.logo}>
+          <Ionicons name="repeat" size={18} color="#fff" />
+        </LinearGradient>
+        <Text style={[s.brand, { color: colors.text }]}>SUBLY</Text>
+        <View style={{ flex: 1 }} />
+        <IconButton
+          icon="notifications-outline"
+          badge={urgentCount > 0}
+          onPress={() => router.push('/calendar')}
+          accessibilityLabel={urgentCount > 0 ? `${urgentCount} cobros próximos` : 'Calendario de cobros'}
+        />
       </View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: isExpoGo ? insets.bottom + 90 : 28 }}
-      >
-        {/* ── Spending hero card ── */}
-        <LinearGradient
-          colors={dark ? ['#1E293B', '#111827'] : ['#111827', '#374151']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={s.heroCard}
-        >
-          <View style={s.heroDec1} />
-          <View style={s.heroDec2} />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: bottom }} keyboardShouldPersistTaps="handled">
+        <Text style={[s.hello, { color: colors.subtext }]}>{greeting()}{firstName ? `, ${firstName}` : ''} 👋</Text>
 
-          <View style={s.heroTop}>
-            <Text style={s.heroLabel}>Gasto mensual</Text>
-            <TouchableOpacity
-              style={s.heroBudgetBtn}
-              onPress={() => setBudgetModalVisible(true)}
-            >
-              <Text style={s.heroBudgetText}>de ${budget.toFixed(0)}</Text>
-              <Ionicons name="pencil-outline" size={10} color="rgba(255,255,255,0.7)" />
-            </TouchableOpacity>
-          </View>
+        <SearchField
+          placeholder="Buscar suscripción…"
+          value={query}
+          onChangeText={setQuery}
+          onClear={() => setQuery('')}
+        />
 
-          <Text style={s.heroAmount}>${monthlyTotal.toFixed(2)}</Text>
-          <Text style={s.heroSub}>{pct.toFixed(0)}% del presupuesto · {subscriptions.length} activas</Text>
-
-          <View style={s.heroProgress}>
-            <View style={[s.heroProgressFill, {
-              width: `${pct}%` as any,
-              backgroundColor: isOverBudget ? '#FCA5A5' : '#fff',
-            }]} />
-          </View>
-
-          {/* Quick actions */}
-          <View style={s.quickActions}>
-            {[
-              { icon: 'add-circle-outline' as const,  label: 'Agregar',  action: () => router.push('/subscription/new') },
-              { icon: 'list-outline' as const,        label: 'Ver todo', action: () => {} },
-              { icon: 'bar-chart-outline' as const,   label: 'Estadísticas', action: () => {} },
-              { icon: 'settings-outline' as const,    label: 'Presupuesto', action: () => setBudgetModalVisible(true) },
-            ].map(q => (
-              <TouchableOpacity key={q.label} style={s.quickBtn} onPress={q.action}>
-                <View style={s.quickIcon}>
-                  <Ionicons name={q.icon} size={20} color="#fff" />
-                </View>
-                <Text style={s.quickLabel}>{q.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </LinearGradient>
-
-        {/* ── Próximos pagos ── */}
-        <View style={s.sectionRow}>
-          <Text style={[s.sectionTitle, { color: colors.text }]}>Próximos pagos</Text>
-          <TouchableOpacity style={s.seeAllBtn}>
-            <Text style={[s.seeAll, { color: colors.accent }]}>Ver todos</Text>
-            <Ionicons name="chevron-forward" size={14} color={colors.accent} />
-          </TouchableOpacity>
-        </View>
-
-        {loading ? (
-          <Text style={[s.infoText, { color: colors.subtext }]}>Cargando…</Text>
-        ) : upcoming.length === 0 ? (
-          <View style={[s.allClearCard, { backgroundColor: dark ? '#052E16' : '#F0FDF4' }]}>
-            <View style={[s.allClearIcon, { backgroundColor: dark ? '#14532D' : '#DCFCE7' }]}>
-              <Ionicons name="checkmark-circle" size={32} color="#16A34A" />
-            </View>
-            <View>
-              <Text style={[s.allClearTitle, { color: dark ? '#86EFAC' : '#14532D' }]}>¡Todo al corriente!</Text>
-              <Text style={[s.allClearSub, { color: dark ? '#4ADE80' : '#166534' }]}>Sin pagos en los próximos 14 días</Text>
-            </View>
-          </View>
-        ) : (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={s.upcomingRow}
-          >
-            {upcoming.map((sub, i) => (
-              <UpcomingCard key={sub.id} sub={sub} idx={i} onPress={() => navigateTo(sub)} />
-            ))}
-          </ScrollView>
-        )}
-
-        {/* ── Resumen stats ── */}
-        {subscriptions.length > 0 && (
+        {!searching && (
           <>
-            <View style={s.sectionRow}>
-              <Text style={[s.sectionTitle, { color: colors.text }]}>Resumen del mes</Text>
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.statsRow}>
-              {[
-                { label: 'Gasto total', value: `$${monthlyTotal.toFixed(2)}`, icon: 'wallet-outline' as const, color: dark ? '#60A5FA' : '#2563EB', bg: dark ? '#1E3A5F' : '#EFF6FF' },
-                { label: 'Disponible', value: `$${Math.max(0, budget - monthlyTotal).toFixed(0)}`, icon: 'trending-up-outline' as const, color: dark ? '#4ADE80' : '#16A34A', bg: dark ? '#052E16' : '#F0FDF4' },
-                { label: 'Anual est.', value: `$${(monthlyTotal * 12).toFixed(0)}`, icon: 'calendar-outline' as const, color: dark ? '#94A3B8' : '#475569', bg: dark ? '#1E293B' : '#F1F5F9' },
-                { label: 'Activas', value: `${subscriptions.length}`, icon: 'apps-outline' as const, color: dark ? '#CBD5E1' : '#374151', bg: dark ? '#0F172A' : '#F3F4F6' },
-              ].map(stat => (
-                <View key={stat.label} style={[s.statCard, { backgroundColor: stat.bg }]}>
-                  <View style={[s.statIcon, { backgroundColor: stat.color + '22' }]}>
-                    <Ionicons name={stat.icon} size={18} color={stat.color} />
+            {/* ── Hero: gasto mensual + tendencia ── */}
+            <View style={[s.hero, { backgroundColor: colors.surfaceAlt }]}>
+              <View style={s.heroTop}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[s.heroLabel, { color: colors.subtext }]}>Gasto mensual</Text>
+                  <View style={s.heroAmountRow}>
+                    <Text style={[s.heroAmount, { color: colors.text }]}>
+                      {int}<Text style={s.heroDec}>.{dec}</Text>
+                    </Text>
+                    <View style={[s.pctChip, { backgroundColor: overBudget ? colors.urgentSoft : colors.accentSoft }]}>
+                      <Ionicons name={overBudget ? 'warning' : 'pie-chart'} size={11} color={overBudget ? colors.urgent : colors.accent} />
+                      <Text style={[s.pctText, { color: overBudget ? colors.urgent : colors.accent }]}>{Math.round(pct * 100)}%</Text>
+                    </View>
                   </View>
-                  <Text style={[s.statValue, { color: stat.color }]}>{stat.value}</Text>
-                  <Text style={[s.statLabel, { color: stat.color, opacity: 0.7 }]}>{stat.label}</Text>
                 </View>
-              ))}
-            </ScrollView>
+                <Pressable onPress={() => setBudgetOpen(true)} style={[s.budgetPill, { backgroundColor: colors.bg }]} hitSlop={6}>
+                  <Text style={[s.budgetText, { color: colors.text }]}>de {moneyShort(budget)}</Text>
+                  <Ionicons name="chevron-down" size={14} color={colors.text} />
+                </Pressable>
+              </View>
+
+              <View style={[s.track, { backgroundColor: colors.bg }]}>
+                <LinearGradient
+                  colors={overBudget ? [colors.urgent, colors.urgent] : colors.gradient}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                  style={[s.trackFill, { width: `${Math.min(pct, 1) * 100}%` }]}
+                />
+              </View>
+
+              <AreaChart
+                id="home"
+                data={trend.map(t => t.value)}
+                labels={trend.map(t => t.label)}
+                highlightIndex={0}
+                height={110}
+              />
+              <Text style={[s.heroFoot, { color: colors.subtext }]}>
+                Cobros reales próximos 6 meses · {pluralize(subscriptions.length, 'activa', 'activas')}
+              </Text>
+            </View>
+
+            {/* ── Próximo cobro destacado ── */}
+            {featured && (
+              <>
+                <SectionHeader title="Próximo cobro" action="Calendario" onAction={() => router.push('/calendar')} />
+                <FeaturedSubscriptionCard sub={featured} onPress={() => open(featured)} />
+              </>
+            )}
+
+            {/* ── Carrusel próximos 14 días ── */}
+            {upcoming.length > 0 && (
+              <>
+                <SectionHeader title="Próximos 14 días" />
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.carousel}>
+                  {upcoming.map(sub => <UpcomingTile key={sub.id} sub={sub} onPress={() => open(sub)} />)}
+                </ScrollView>
+              </>
+            )}
           </>
         )}
 
-        {/* ── Todas las suscripciones ── */}
+        {/* ── Lista con filtros ── */}
         {subscriptions.length > 0 && (
           <>
-            <View style={s.sectionRow}>
-              <Text style={[s.sectionTitle, { color: colors.text }]}>Todas las suscripciones</Text>
-            </View>
-            <View style={s.subCardCol}>
-              {subscriptions.map(item => {
-                const d = daysUntilRenewal(item.next_renewal);
-                const urg = d <= 0 ? 'Hoy' : d === 1 ? 'Mañana' : d < 7 ? `En ${d} días`
-                  : new Date(item.next_renewal + 'T12:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
-                const isUrgent = d <= 3;
-                return (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={[s.subCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
-                    onPress={() => navigateTo(item)}
-                    activeOpacity={0.75}
-                  >
-                    <SubIcon name={item.name} color={item.color} size={46} borderRadius={14} />
-                    <View style={s.subCardInfo}>
-                      <Text style={[s.subCardName, { color: colors.text }]}>{item.name}</Text>
-                      <View style={s.subCardPills}>
-                        <View style={[s.subCardPill, {
-                          backgroundColor: item.billing_cycle === 'monthly'
-                            ? (dark ? '#052E16' : '#F0FDF4')
-                            : (dark ? '#1E3A5F' : '#EFF6FF'),
-                        }]}>
-                          <Text style={[s.subCardPillText, {
-                            color: item.billing_cycle === 'monthly'
-                              ? (dark ? '#4ADE80' : '#16A34A')
-                              : (dark ? '#93C5FD' : '#2563EB'),
-                          }]}>
-                            {item.billing_cycle === 'monthly' ? 'Mensual' : 'Anual'}
-                          </Text>
-                        </View>
-                        {isUrgent && (
-                          <View style={[s.subCardPill, { backgroundColor: dark ? '#4C0519' : '#FEF2F2' }]}>
-                            <Text style={[s.subCardPillText, { color: colors.urgent }]}>{urg}</Text>
-                          </View>
-                        )}
-                      </View>
-                    </View>
-                    <View style={s.subCardRight}>
-                      <Text style={[s.subCardPrice, { color: colors.text }]}>${item.price.toFixed(2)}</Text>
-                      <Text style={[s.subCardCycle, { color: colors.subtext }]}>{!isUrgent ? urg : (item.billing_cycle === 'monthly' ? '/mes' : '/año')}</Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={15} color={colors.subtext} style={{ marginLeft: 2 }} />
-                  </TouchableOpacity>
-                );
-              })}
+            <SectionHeader title={searching ? 'Resultados' : 'Mis suscripciones'} action="Estadísticas" onAction={() => router.push('/explore')} />
+            <FilterPills<Filter>
+              value={filter}
+              onChange={setFilter}
+              options={[
+                { key: 'all', label: 'Todas' },
+                { key: 'monthly', label: 'Mensuales' },
+                { key: 'yearly', label: 'Anuales' },
+              ]}
+            />
+            <View style={{ marginTop: 10 }}>
+              {filtered.map(sub => <SubscriptionRow key={sub.id} sub={sub} onPress={() => open(sub)} />)}
+              {filtered.length === 0 && (
+                <Text style={[s.noResults, { color: colors.subtext }]}>Nada coincide con tu búsqueda.</Text>
+              )}
             </View>
           </>
         )}
 
-        {/* ── Empty state ── */}
-        {!loading && subscriptions.length === 0 && (
-          <View style={s.emptyContainer}>
-            <LinearGradient colors={dark ? ['#1E3A5F', '#1E40AF'] : ['#EFF6FF', '#DBEAFE']} style={s.emptyIconWrap}>
-              <Ionicons name="receipt-outline" size={44} color="#2563EB" />
+        {/* ── Descubrir catálogo ── */}
+        {!searching && subscriptions.length > 0 && (
+          <PressableScale onPress={() => router.push('/catalog')} style={s.discoverWrap}>
+            <LinearGradient colors={colors.gradientAlt} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.discover}>
+              <View style={{ flex: 1 }}>
+                <Text style={s.discoverTitle}>Explora el catálogo</Text>
+                <Text style={s.discoverBody}>Netflix, Spotify, ChatGPT, Game Pass… con precios en MXN.</Text>
+              </View>
+              <View style={s.discoverIcon}>
+                <Ionicons name="compass" size={26} color="#fff" />
+              </View>
             </LinearGradient>
-            <Text style={[s.emptyTitle, { color: colors.text }]}>Sin suscripciones</Text>
-            <Text style={[s.emptyDesc, { color: colors.subtext }]}>
-              Agrega tus servicios para llevar un control de tus gastos mensuales.
-            </Text>
-            <TouchableOpacity
-              style={[s.emptyBtn, { backgroundColor: colors.accent }]}
-              onPress={() => router.push('/subscription/new')}
-            >
-              <Ionicons name="add" size={18} color="#fff" />
-              <Text style={s.emptyBtnText}>Agregar primera suscripción</Text>
-            </TouchableOpacity>
-          </View>
+          </PressableScale>
+        )}
+
+        {!loading && subscriptions.length === 0 && (
+          <EmptyState
+            icon="receipt-outline"
+            title="Sin suscripciones aún"
+            body="Agrega tus servicios para ver cuánto gastas, cuándo te cobran y dónde puedes ahorrar."
+            cta="Agregar la primera"
+            onCta={() => router.push('/subscription/new')}
+          />
         )}
       </ScrollView>
     </SafeAreaView>
@@ -432,98 +207,31 @@ export default function DashboardScreen() {
 
 const s = StyleSheet.create({
   root: { flex: 1 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: spacing.screen, paddingTop: 6, paddingBottom: 6 },
+  logo: { width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '-8deg' }] },
+  brand: { fontSize: 22, fontWeight: '900', letterSpacing: 1.5 },
+  hello: { ...type.bodyBold, paddingHorizontal: spacing.screen, marginTop: 6, marginBottom: 14 },
 
-  // Header
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingTop: 6, paddingBottom: 14,
-  },
-  dateLabel: { fontSize: 12, fontWeight: '500', textTransform: 'capitalize', marginBottom: 2 },
-  greeting: { fontSize: 22, fontWeight: '800', letterSpacing: -0.5 },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  notifBtn: {
-    width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
-  },
-  addGlassOuter: { borderRadius: 24, width: 44, height: 44 },
-  addGlassInner: { borderRadius: 24, width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  addBtnTouch: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  addBtnFallback: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 22, elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.18, shadowRadius: 6 },
-  addBtnLabel: { fontSize: 14, fontWeight: '700' },
+  hero: { marginHorizontal: spacing.screen, marginTop: 18, borderRadius: radius.lg, padding: 18, paddingBottom: 14 },
+  heroTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  heroLabel: { fontSize: 14, fontWeight: '700' },
+  heroAmountRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 },
+  heroAmount: { fontSize: 36, fontWeight: '900', letterSpacing: -1.2 },
+  heroDec: { fontSize: 20, fontWeight: '800' },
+  pctChip: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 7, paddingVertical: 3, borderRadius: radius.xs },
+  pctText: { fontSize: 12, fontWeight: '900' },
+  budgetPill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.pill },
+  budgetText: { fontSize: 13, fontWeight: '800' },
+  track: { height: 8, borderRadius: 4, overflow: 'hidden', marginTop: 14, marginBottom: 12 },
+  trackFill: { height: 8, borderRadius: 4 },
+  heroFoot: { fontSize: 11, fontWeight: '700', marginTop: 10, textAlign: 'center' },
 
-  // Hero card
-  heroCard: { marginHorizontal: 16, borderRadius: 24, padding: 20, overflow: 'hidden' },
-  heroDec1: { position: 'absolute', width: 220, height: 220, borderRadius: 110, backgroundColor: 'rgba(255,255,255,0.07)', top: -80, right: -60 },
-  heroDec2: { position: 'absolute', width: 140, height: 140, borderRadius: 70, backgroundColor: 'rgba(255,255,255,0.05)', bottom: -40, left: 10 },
-  heroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
-  heroLabel: { color: 'rgba(255,255,255,0.75)', fontSize: 13, fontWeight: '500' },
-  heroBudgetBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
-  heroBudgetText: { color: '#fff', fontSize: 12, fontWeight: '500' },
-  heroAmount: { color: '#fff', fontSize: 46, fontWeight: '800', letterSpacing: -2, marginBottom: 3 },
-  heroSub: { color: 'rgba(255,255,255,0.65)', fontSize: 13, marginBottom: 14 },
-  heroProgress: { height: 4, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 2, marginBottom: 20 },
-  heroProgressFill: { height: 4, borderRadius: 2 },
-  quickActions: { flexDirection: 'row', justifyContent: 'space-between' },
-  quickBtn: { alignItems: 'center', gap: 6, flex: 1 },
-  quickIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
-  quickLabel: { color: 'rgba(255,255,255,0.85)', fontSize: 10, fontWeight: '600', textAlign: 'center' },
+  carousel: { paddingHorizontal: spacing.screen, gap: 12 },
+  noResults: { ...type.body, textAlign: 'center', paddingVertical: 24 },
 
-  // Section rows
-  sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: 20, marginTop: 24, marginBottom: 12 },
-  sectionTitle: { fontSize: 18, fontWeight: '800', letterSpacing: -0.3 },
-  seeAllBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  seeAll: { fontSize: 14, fontWeight: '600' },
-
-  infoText: { fontSize: 15, marginHorizontal: 20 },
-
-  // All-clear
-  allClearCard: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, borderRadius: 18, padding: 16, gap: 14 },
-  allClearIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#DCFCE7', alignItems: 'center', justifyContent: 'center' },
-  allClearTitle: { fontSize: 15, fontWeight: '700' },
-  allClearSub: { fontSize: 13, marginTop: 2 },
-
-  // Upcoming
-  upcomingRow: { paddingHorizontal: 16, gap: 10 },
-  upCard: {
-    width: 148, borderRadius: 18, padding: 14, gap: 8,
-    borderWidth: StyleSheet.hairlineWidth, borderLeftWidth: 4,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
-  },
-  upName: { fontSize: 14, fontWeight: '700', marginTop: 2 },
-  upPrice: { fontSize: 13, fontWeight: '500' },
-  upBadge: { alignSelf: 'flex-start', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 },
-  upBadgeText: { fontSize: 11, fontWeight: '700' },
-
-  // Stats
-  statsRow: { paddingHorizontal: 16, gap: 10 },
-  statCard: { width: 120, borderRadius: 18, padding: 14, gap: 8 },
-  statIcon: { width: 36, height: 36, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
-  statValue: { fontSize: 18, fontWeight: '800', letterSpacing: -0.5 },
-  statLabel: { fontSize: 11, fontWeight: '600' },
-
-  // Individual subscription cards
-  subCardCol: { marginHorizontal: 16, gap: 10 },
-  subCard: {
-    flexDirection: 'row', alignItems: 'center', borderRadius: 18,
-    borderWidth: StyleSheet.hairlineWidth, padding: 14, gap: 12,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
-  },
-  subCardInfo: { flex: 1 },
-  subCardName: { fontSize: 15, fontWeight: '700' },
-  subCardPills: { flexDirection: 'row', gap: 5, marginTop: 5, flexWrap: 'wrap' },
-  subCardPill: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
-  subCardPillText: { fontSize: 11, fontWeight: '600' },
-  subCardRight: { alignItems: 'flex-end' },
-  subCardPrice: { fontSize: 16, fontWeight: '800' },
-  subCardCycle: { fontSize: 11, marginTop: 2 },
-
-  // Empty
-  emptyContainer: { alignItems: 'center', paddingTop: 32, paddingHorizontal: 32, gap: 14 },
-  emptyIconWrap: { width: 88, height: 88, borderRadius: 44, alignItems: 'center', justifyContent: 'center' },
-  emptyTitle: { fontSize: 20, fontWeight: '800', letterSpacing: -0.3 },
-  emptyDesc: { fontSize: 15, textAlign: 'center', lineHeight: 22 },
-  emptyBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 18, paddingHorizontal: 20, paddingVertical: 14, marginTop: 6 },
-  emptyBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  discoverWrap: { marginHorizontal: spacing.screen, marginTop: 26 },
+  discover: { borderRadius: radius.lg, padding: 20, flexDirection: 'row', alignItems: 'center', gap: 14 },
+  discoverTitle: { color: '#fff', fontSize: 19, fontWeight: '900', letterSpacing: -0.3 },
+  discoverBody: { color: 'rgba(255,255,255,0.85)', fontSize: 13, fontWeight: '600', marginTop: 4, lineHeight: 18 },
+  discoverIcon: { width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
 });

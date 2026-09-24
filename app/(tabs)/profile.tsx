@@ -1,314 +1,231 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
-  Alert, Image, Platform, ScrollView, StyleSheet, Switch,
-  Text, ToastAndroid, TouchableOpacity, View,
+  Alert, Image, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, ToastAndroid, View,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
+import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { signOut } from 'firebase/auth';
-import { isExpoGo } from '../../src/utils/env';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from 'expo-router';
+import { signOut } from 'firebase/auth';
 import { auth } from '../../src/firebase';
 import { useAuth } from '../../src/hooks/useAuth';
 import { useSubscriptions } from '../../src/hooks/useSubscriptions';
 import { useTheme } from '../../src/hooks/useTheme';
 import { usePaymentCards } from '../../src/hooks/usePaymentCards';
-import CardPickerModal, { CardChip, BrandSvgIcon, brandIconBg } from '../../src/components/CardPickerModal';
+import BudgetModal from '../../src/components/BudgetModal';
+import CardPickerModal, { BrandSvgIcon, CardChip, brandIconBg } from '../../src/components/CardPickerModal';
+import { ScreenHeader, SectionHeader, useTabBarSpace, type IoniconName } from '../../src/components/ui';
+import { moneyShort } from '../../src/utils/format';
+import { radius, spacing, type } from '../../src/theme/tokens';
+
+type SettingRow = {
+  icon: IoniconName; label: string; value?: string; onPress?: () => void; danger?: boolean; valueTone?: 'ok' | 'warn';
+};
 
 export default function ProfileScreen() {
-  const { subscriptions, monthlyTotal } = useSubscriptions();
+  const { subscriptions, monthlyTotal, yearlyTotal, budget } = useSubscriptions();
   const { user } = useAuth();
   const { colors, dark } = useTheme();
   const { cards, removeCard, updateCard } = usePaymentCards();
-  const insets = useSafeAreaInsets();
-  const [signingOut, setSigningOut] = useState(false);
+  const bottom = useTabBarSpace();
+
   const [showCardModal, setShowCardModal] = useState(false);
   const [editingCards, setEditingCards] = useState(false);
+  const [budgetOpen, setBudgetOpen] = useState(false);
+  const [notifStatus, setNotifStatus] = useState<'granted' | 'denied' | 'undetermined' | null>(null);
+
+  // Estado real del permiso de notificaciones (se refresca al volver de Ajustes)
+  useFocusEffect(useCallback(() => {
+    if (Platform.OS === 'web') return;
+    Notifications.getPermissionsAsync().then(p => setNotifStatus(p.status as typeof notifStatus)).catch(() => {});
+  }, []));
 
   const sortedCards = [...cards].sort((a, b) => {
     const ao = a.order ?? 999, bo = b.order ?? 999;
-    if (ao !== bo) return ao - bo;
-    return a.created_at.localeCompare(b.created_at);
+    return ao !== bo ? ao - bo : a.created_at.localeCompare(b.created_at);
   });
 
   const moveCard = async (index: number, direction: -1 | 1) => {
     const target = index + direction;
     if (target < 0 || target >= sortedCards.length) return;
-    const a = sortedCards[index];
-    const b = sortedCards[target];
-    await updateCard(a.id, { order: target });
-    await updateCard(b.id, { order: index });
+    await updateCard(sortedCards[index].id, { order: target });
+    await updateCard(sortedCards[target].id, { order: index });
   };
 
-  const yearlyTotal = monthlyTotal * 12;
+  const copyClabe = async (clabe: string) => {
+    await Clipboard.setStringAsync(clabe);
+    if (Platform.OS === 'android') ToastAndroid.show('CLABE copiada', ToastAndroid.SHORT);
+    else Alert.alert('Copiada', 'CLABE copiada al portapapeles');
+  };
 
   const handleSignOut = () => {
-    Alert.alert(
-      'Cerrar sesión',
-      '¿Seguro que quieres cerrar sesión?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Cerrar sesión',
-          style: 'destructive',
-          onPress: async () => {
-            setSigningOut(true);
-            await signOut(auth);
-          },
-        },
-      ],
-    );
+    Alert.alert('Cerrar sesión', '¿Seguro que quieres cerrar sesión?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Cerrar sesión', style: 'destructive', onPress: () => signOut(auth) },
+    ]);
   };
 
-  const displayName = user?.displayName ?? 'Usuario';
+  const handleNotifications = async () => {
+    if (notifStatus === 'undetermined') {
+      const res = await Notifications.requestPermissionsAsync();
+      setNotifStatus(res.status as typeof notifStatus);
+    } else {
+      Linking.openSettings();
+    }
+  };
+
+  const displayName = user?.displayName ?? user?.email?.split('@')[0] ?? 'Usuario';
   const email = user?.email ?? '';
-  const photoURL = user?.photoURL;
   const initials = displayName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
-  const provider = user?.providerData[0]?.providerId === 'google.com' ? 'Google' :
-                   user?.providerData[0]?.providerId === 'apple.com' ? 'Apple' : 'OAuth';
+  const providerId = user?.providerData[0]?.providerId;
+  const provider = providerId === 'google.com' ? 'Google' : providerId === 'apple.com' ? 'Apple' : 'Email';
+
+  const settings: SettingRow[] = [
+    {
+      icon: 'notifications-outline', label: 'Notificaciones', onPress: handleNotifications,
+      value: notifStatus === 'granted' ? 'Activadas' : notifStatus === 'denied' ? 'Bloqueadas' : 'Activar',
+      valueTone: notifStatus === 'granted' ? 'ok' : 'warn',
+    },
+    { icon: 'wallet-outline', label: 'Presupuesto mensual', value: moneyShort(budget), onPress: () => setBudgetOpen(true) },
+    { icon: 'cash-outline', label: 'Moneda', value: 'MXN' },
+    { icon: 'contrast-outline', label: 'Apariencia', value: dark ? 'Oscura (sistema)' : 'Clara (sistema)' },
+    { icon: 'cloud-done-outline', label: 'Sincronización', value: 'Firebase' },
+    { icon: 'log-out-outline', label: 'Cerrar sesión', onPress: handleSignOut, danger: true },
+  ];
 
   return (
     <SafeAreaView edges={['top']} style={[s.root, { backgroundColor: colors.bg }]}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: isExpoGo ? insets.bottom + 90 : 32 }}
-      >
-        {/* ── Dark hero header ── */}
-        <LinearGradient
-          colors={dark ? ['#1E293B', '#0F172A'] : ['#111827', '#374151']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={s.heroGrad}
-        >
-          <View style={s.heroDec1} />
-          <View style={s.heroDec2} />
+      <BudgetModal visible={budgetOpen} onClose={() => setBudgetOpen(false)} />
+      <ScreenHeader title="Perfil" />
 
-          {photoURL ? (
-            <Image source={{ uri: photoURL }} style={s.avatarImg} />
-          ) : (
-            <View style={s.avatarFallback}>
-              <Text style={s.avatarInitials}>{initials}</Text>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: bottom }}>
+        {/* Tarjeta de usuario */}
+        <View style={[s.userCard, { backgroundColor: colors.surface }]}>
+          <LinearGradient colors={colors.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.avatarRing}>
+            {user?.photoURL
+              ? <Image source={{ uri: user.photoURL }} style={[s.avatar, { borderColor: colors.surface }]} />
+              : <View style={[s.avatar, s.avatarFallback, { borderColor: colors.surface, backgroundColor: colors.accentSoft }]}>
+                  <Text style={[s.initials, { color: colors.accent }]}>{initials}</Text>
+                </View>}
+          </LinearGradient>
+          <View style={{ flex: 1, gap: 3 }}>
+            <Text style={[type.h2, { color: colors.text }]} numberOfLines={1}>{displayName}</Text>
+            {!!email && <Text style={[s.email, { color: colors.subtext }]} numberOfLines={1}>{email}</Text>}
+            <View style={[s.provider, { backgroundColor: colors.accentSoft }]}>
+              <Ionicons name={provider === 'Apple' ? 'logo-apple' : provider === 'Google' ? 'logo-google' : 'mail'} size={11} color={colors.accent} />
+              <Text style={[s.providerText, { color: colors.accent }]}>{provider}</Text>
             </View>
-          )}
-          <Text style={s.heroName}>{displayName}</Text>
-          <Text style={s.heroEmail}>{email}</Text>
-          <View style={s.providerPill}>
-            <Text style={s.providerText}>via {provider}</Text>
           </View>
-        </LinearGradient>
+        </View>
 
-        {/* ── Stats strip ── */}
-        <View style={[s.statsStrip, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+        {/* Stats */}
+        <View style={s.stats}>
           {[
-            { value: String(subscriptions.length), label: 'Activas' },
-            { value: `$${monthlyTotal.toFixed(0)}`, label: 'Al mes' },
-            { value: `$${yearlyTotal.toFixed(0)}`, label: 'Al año' },
-          ].map((stat, i, arr) => (
-            <React.Fragment key={stat.label}>
-              <View style={s.statItem}>
-                <Text style={[s.statValue, { color: colors.text }]}>{stat.value}</Text>
-                <Text style={[s.statLabel, { color: colors.subtext }]}>{stat.label}</Text>
-              </View>
-              {i < arr.length - 1 && <View style={[s.statDivider, { backgroundColor: colors.separator }]} />}
-            </React.Fragment>
+            { value: String(subscriptions.length), label: 'Activas', icon: 'apps' as IoniconName },
+            { value: moneyShort(monthlyTotal), label: 'Al mes', icon: 'calendar' as IoniconName },
+            { value: moneyShort(yearlyTotal), label: 'Al año', icon: 'trending-up' as IoniconName },
+          ].map(st => (
+            <View key={st.label} style={[s.stat, { backgroundColor: colors.surface }]}>
+              <Ionicons name={st.icon} size={16} color={colors.accent} />
+              <Text style={[s.statValue, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>{st.value}</Text>
+              <Text style={[s.statLabel, { color: colors.subtext }]}>{st.label}</Text>
+            </View>
           ))}
         </View>
 
-        {/* ── Mis tarjetas ── */}
-        <View style={s.sectionRow}>
-          <Text style={[s.sectionTitle, { color: colors.text }]}>Mis tarjetas</Text>
-          <View style={{ flexDirection: 'row', gap: 12 }}>
-            {cards.length > 1 && (
-              <TouchableOpacity onPress={() => setEditingCards(v => !v)}>
-                <Text style={[s.sectionLink, { color: editingCards ? colors.urgent : colors.accent }]}>
-                  {editingCards ? 'Listo' : 'Ordenar'}
-                </Text>
-              </TouchableOpacity>
-            )}
-            {!editingCards && (
-              <TouchableOpacity onPress={() => setShowCardModal(true)}>
-                <Text style={[s.sectionLink, { color: colors.accent }]}>+ Agregar</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-
-        {cards.length === 0 ? (
-          <TouchableOpacity
-            style={[s.listCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
-            onPress={() => setShowCardModal(true)}
-            activeOpacity={0.7}
-          >
-            <View style={s.row}>
-              <View style={[s.rowIconWrap, { backgroundColor: colors.accentSoft }]}>
-                <Ionicons name="card-outline" size={18} color={colors.accent} />
-              </View>
-              <Text style={[s.rowLabel, { color: colors.subtext }]}>Agregar tarjeta o CLABE</Text>
-              <Ionicons name="chevron-forward" size={16} color={colors.subtext} />
-            </View>
-          </TouchableOpacity>
-        ) : (
-          <View style={[s.listCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-            {sortedCards.map((card, i) => {
-              const isClabe = card.kind === 'clabe';
-              return (
-                <View key={card.id}>
-                  {i > 0 && <View style={[s.sep, { backgroundColor: colors.separator }]} />}
-                  <View style={s.cardRow}>
-                    {editingCards && (
-                      <View style={s.reorderCol}>
-                        <TouchableOpacity onPress={() => moveCard(i, -1)} disabled={i === 0} style={{ opacity: i === 0 ? 0.2 : 1 }}>
-                          <Ionicons name="chevron-up" size={18} color={colors.accent} />
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={() => moveCard(i, 1)} disabled={i === sortedCards.length - 1} style={{ opacity: i === sortedCards.length - 1 ? 0.2 : 1 }}>
-                          <Ionicons name="chevron-down" size={18} color={colors.accent} />
-                        </TouchableOpacity>
-                      </View>
-                    )}
-                    <View style={[s.cardIconWrap, { backgroundColor: isClabe ? colors.accentSoft : brandIconBg(card.brand, dark) }]}>
-                      {isClabe
-                        ? <Ionicons name="swap-horizontal-outline" size={18} color={colors.accent} />
-                        : <BrandSvgIcon brand={card.brand} size={24} />
-                      }
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[s.cardAlias, { color: colors.text }]}>{card.alias}</Text>
-                      {isClabe && card.clabe ? (
-                        <Text style={[s.cardSub, { color: colors.accent }]}>{card.clabe.replace(/(\d{4})(?=\d)/g, '$1 ')}</Text>
-                      ) : (
-                        <Text style={[s.cardSub, { color: colors.subtext }]}>{card.bank}</Text>
-                      )}
-                    </View>
-                    {editingCards ? (
-                      <TouchableOpacity
-                        onPress={() => Alert.alert('Eliminar', `¿Eliminar "${card.alias}"?`, [
-                          { text: 'Cancelar', style: 'cancel' },
-                          { text: 'Eliminar', style: 'destructive', onPress: () => removeCard(card.id) },
-                        ])}
-                      >
-                        <Ionicons name="trash-outline" size={18} color={colors.urgent} />
-                      </TouchableOpacity>
-                    ) : isClabe && card.clabe ? (
-                      <TouchableOpacity
-                        style={[s.copyBtn, { backgroundColor: colors.accentSoft }]}
-                        onPress={async () => {
-                          await Clipboard.setStringAsync(card.clabe!);
-                          if (Platform.OS === 'android') ToastAndroid.show('CLABE copiada', ToastAndroid.SHORT);
-                          else Alert.alert('Copiada', 'CLABE copiada al portapapeles');
-                        }}
-                      >
-                        <Ionicons name="copy-outline" size={14} color={colors.accent} />
-                        <Text style={[s.copyText, { color: colors.accent }]}>Copiar</Text>
-                      </TouchableOpacity>
-                    ) : (
-                      <CardChip card={card} colors={colors} />
-                    )}
-                  </View>
-                </View>
-              );
-            })}
-            {!editingCards && (
-              <>
-                <View style={[s.sep, { backgroundColor: colors.separator }]} />
-                <TouchableOpacity style={s.row} onPress={() => setShowCardModal(true)} activeOpacity={0.7}>
-                  <View style={[s.rowIconWrap, { backgroundColor: colors.accentSoft }]}>
-                    <Ionicons name="add" size={18} color={colors.accent} />
-                  </View>
-                  <Text style={[s.rowLabel, { color: colors.accent }]}>Agregar otra tarjeta</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
-        )}
-
-        <CardPickerModal
-          visible={showCardModal}
-          onSelect={() => {}}
-          onClose={() => setShowCardModal(false)}
+        {/* Tarjetas */}
+        <SectionHeader
+          title="Mis tarjetas"
+          action={cards.length > 1 ? (editingCards ? 'Listo' : 'Editar') : undefined}
+          onAction={() => setEditingCards(v => !v)}
         />
-
-        {/* ── Ajustes ── */}
-        <View style={s.sectionRow}>
-          <Text style={[s.sectionTitle, { color: colors.text }]}>Ajustes</Text>
+        <View style={[s.list, { backgroundColor: colors.surface }]}>
+          {sortedCards.map((card, i) => {
+            const isClabe = card.kind === 'clabe';
+            return (
+              <View key={card.id} style={[s.row, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.separator }]}>
+                {editingCards && (
+                  <View>
+                    <Pressable onPress={() => moveCard(i, -1)} disabled={i === 0} style={{ opacity: i === 0 ? 0.25 : 1 }} hitSlop={6}>
+                      <Ionicons name="chevron-up" size={18} color={colors.accent} />
+                    </Pressable>
+                    <Pressable onPress={() => moveCard(i, 1)} disabled={i === sortedCards.length - 1} style={{ opacity: i === sortedCards.length - 1 ? 0.25 : 1 }} hitSlop={6}>
+                      <Ionicons name="chevron-down" size={18} color={colors.accent} />
+                    </Pressable>
+                  </View>
+                )}
+                <View style={[s.rowIcon, { backgroundColor: isClabe ? colors.accentSoft : brandIconBg(card.brand, dark) }]}>
+                  {isClabe ? <Ionicons name="swap-horizontal" size={18} color={colors.accent} /> : <BrandSvgIcon brand={card.brand} size={24} />}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[type.bodyBold, { color: colors.text }]} numberOfLines={1}>{card.alias}</Text>
+                  <Text style={[s.rowSub, { color: isClabe ? colors.accent : colors.subtext }]} numberOfLines={1}>
+                    {isClabe && card.clabe ? card.clabe.replace(/(\d{4})(?=\d)/g, '$1 ') : card.bank}
+                  </Text>
+                </View>
+                {editingCards ? (
+                  <Pressable hitSlop={8} onPress={() => Alert.alert('Eliminar', `¿Eliminar "${card.alias}"?`, [
+                    { text: 'Cancelar', style: 'cancel' },
+                    { text: 'Eliminar', style: 'destructive', onPress: () => removeCard(card.id) },
+                  ])}>
+                    <Ionicons name="trash-outline" size={20} color={colors.urgent} />
+                  </Pressable>
+                ) : isClabe && card.clabe ? (
+                  <Pressable onPress={() => copyClabe(card.clabe!)} hitSlop={8} style={[s.copy, { backgroundColor: colors.accentSoft }]}>
+                    <Ionicons name="copy-outline" size={14} color={colors.accent} />
+                    <Text style={[s.copyText, { color: colors.accent }]}>Copiar</Text>
+                  </Pressable>
+                ) : (
+                  <CardChip card={card} colors={colors} />
+                )}
+              </View>
+            );
+          })}
+          {!editingCards && (
+            <Pressable
+              onPress={() => setShowCardModal(true)}
+              style={[s.row, cards.length > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.separator }]}
+            >
+              <View style={[s.rowIcon, { backgroundColor: colors.accentSoft }]}>
+                <Ionicons name="add" size={20} color={colors.accent} />
+              </View>
+              <Text style={[type.bodyBold, { color: colors.accent, flex: 1 }]}>
+                {cards.length === 0 ? 'Agregar tarjeta o CLABE' : 'Agregar otra'}
+              </Text>
+            </Pressable>
+          )}
         </View>
-        <View style={s.settingsCol}>
-          <View style={[s.settingCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-            <View style={[s.rowIconWrap, { backgroundColor: '#FEF3C7' }]}>
-              <Ionicons name="notifications-outline" size={18} color="#D97706" />
-            </View>
-            <Text style={[s.rowLabel, { color: colors.text }]}>Notificaciones</Text>
-            <Switch
-              value
-              trackColor={{ false: colors.separator, true: colors.primary }}
-              thumbColor="#fff"
-              ios_backgroundColor={colors.separator}
-            />
-          </View>
+        <CardPickerModal visible={showCardModal} onSelect={() => {}} onClose={() => setShowCardModal(false)} />
 
-          <TouchableOpacity style={[s.settingCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]} activeOpacity={0.7}>
-            <View style={[s.rowIconWrap, { backgroundColor: '#EDE9FE' }]}>
-              <Ionicons name="cash-outline" size={18} color="#7C3AED" />
-            </View>
-            <Text style={[s.rowLabel, { color: colors.text }]}>Moneda</Text>
-            <View style={[s.settingValue, { backgroundColor: colors.bg }]}>
-              <Text style={[s.settingValueText, { color: colors.subtext }]}>USD</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={14} color={colors.subtext} />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[s.settingCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]} activeOpacity={0.7}>
-            <View style={[s.rowIconWrap, { backgroundColor: '#F0FDF4' }]}>
-              <Ionicons name="alarm-outline" size={18} color="#16A34A" />
-            </View>
-            <Text style={[s.rowLabel, { color: colors.text }]}>Recordatorio</Text>
-            <View style={[s.settingValue, { backgroundColor: '#F0FDF4' }]}>
-              <Text style={[s.settingValueText, { color: '#16A34A' }]}>1 día antes</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={14} color={colors.subtext} />
-          </TouchableOpacity>
+        {/* Ajustes estilo lista */}
+        <SectionHeader title="Ajustes" />
+        <View style={{ gap: 10, marginHorizontal: spacing.screen }}>
+          {settings.map(row => {
+            const tint = row.danger ? colors.urgent : colors.text;
+            return (
+              <Pressable
+                key={row.label}
+                onPress={row.onPress}
+                disabled={!row.onPress}
+                style={({ pressed }) => [s.setting, { backgroundColor: colors.surface, opacity: pressed ? 0.7 : 1 }]}
+              >
+                <Ionicons name={row.icon} size={22} color={tint} />
+                <Text style={[s.settingLabel, { color: tint }]}>{row.label}</Text>
+                {row.value && (
+                  <Text style={[s.settingValue, {
+                    color: row.valueTone === 'ok' ? colors.success : row.valueTone === 'warn' ? colors.warning : colors.subtext,
+                  }]}>{row.value}</Text>
+                )}
+                {row.onPress && !row.danger && <Ionicons name="chevron-forward" size={18} color={colors.subtext} />}
+              </Pressable>
+            );
+          })}
         </View>
 
-        {/* ── Cuenta ── */}
-        <View style={s.sectionRow}>
-          <Text style={[s.sectionTitle, { color: colors.text }]}>Cuenta</Text>
-        </View>
-        <View style={s.settingsCol}>
-          <View style={[s.settingCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-            <View style={[s.rowIconWrap, { backgroundColor: '#EFF6FF' }]}>
-              <Ionicons name="cloud-done-outline" size={18} color="#2563EB" />
-            </View>
-            <Text style={[s.rowLabel, { color: colors.text }]}>Datos guardados en</Text>
-            <View style={[s.settingValue, { backgroundColor: '#EFF6FF' }]}>
-              <Text style={[s.settingValueText, { color: '#2563EB' }]}>Firebase</Text>
-            </View>
-          </View>
-
-          <View style={[s.settingCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-            <View style={[s.rowIconWrap, { backgroundColor: dark ? '#374151' : '#F3F4F6' }]}>
-              <Ionicons name="person-outline" size={18} color={colors.subtext} />
-            </View>
-            <Text style={[s.rowLabel, { color: colors.text }]}>Sesión con</Text>
-            <View style={[s.settingValue, { backgroundColor: colors.bg }]}>
-              <Text style={[s.settingValueText, { color: colors.subtext }]}>{provider}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* ── Cerrar sesión ── */}
-        <TouchableOpacity
-          style={[s.signOutBtn, { backgroundColor: colors.primary }]}
-          onPress={handleSignOut}
-          disabled={signingOut}
-          activeOpacity={0.85}
-        >
-          <Ionicons name="log-out-outline" size={18} color={colors.primaryText} />
-          <Text style={[s.signOutText, { color: colors.primaryText }]}>
-            {signingOut ? 'Cerrando sesión…' : 'Cerrar sesión'}
-          </Text>
-        </TouchableOpacity>
-
-        <Text style={[s.version, { color: colors.subtext }]}>Subly v1.0.0</Text>
+        <Text style={[s.version, { color: colors.muted }]}>Subly v{Constants.expoConfig?.version ?? '1.0.0'}</Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -316,106 +233,29 @@ export default function ProfileScreen() {
 
 const s = StyleSheet.create({
   root: { flex: 1 },
+  userCard: { flexDirection: 'row', alignItems: 'center', gap: 16, marginHorizontal: spacing.screen, borderRadius: radius.lg, padding: 16 },
+  avatarRing: { width: 76, height: 76, borderRadius: 38, alignItems: 'center', justifyContent: 'center' },
+  avatar: { width: 70, height: 70, borderRadius: 35, borderWidth: 3 },
+  avatarFallback: { alignItems: 'center', justifyContent: 'center' },
+  initials: { fontSize: 24, fontWeight: '900' },
+  email: { fontSize: 13, fontWeight: '600' },
+  provider: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.xs, marginTop: 4 },
+  providerText: { fontSize: 11, fontWeight: '800' },
 
-  heroGrad: {
-    paddingTop: 24, paddingBottom: 32, paddingHorizontal: 20,
-    alignItems: 'center', gap: 6, overflow: 'hidden',
-  },
-  heroDec1: {
-    position: 'absolute', width: 260, height: 260, borderRadius: 130,
-    backgroundColor: 'rgba(255,255,255,0.04)', top: -100, right: -80,
-  },
-  heroDec2: {
-    position: 'absolute', width: 160, height: 160, borderRadius: 80,
-    backgroundColor: 'rgba(255,255,255,0.03)', bottom: -50, left: 10,
-  },
-  avatarImg: {
-    width: 84, height: 84, borderRadius: 42,
-    borderWidth: 3, borderColor: 'rgba(255,255,255,0.3)',
-  },
-  avatarFallback: {
-    width: 84, height: 84, borderRadius: 42,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 3, borderColor: 'rgba(255,255,255,0.3)',
-  },
-  avatarInitials: { fontSize: 30, fontWeight: '700', color: '#fff' },
-  heroName: { fontSize: 22, fontWeight: '800', color: '#fff', marginTop: 4 },
-  heroEmail: { fontSize: 13, color: 'rgba(255,255,255,0.6)' },
-  providerPill: {
-    marginTop: 4, backgroundColor: 'rgba(255,255,255,0.12)',
-    paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20,
-  },
-  providerText: { fontSize: 12, color: 'rgba(255,255,255,0.75)', fontWeight: '500' },
+  stats: { flexDirection: 'row', gap: 10, marginHorizontal: spacing.screen, marginTop: 12 },
+  stat: { flex: 1, borderRadius: radius.md, padding: 14, gap: 4 },
+  statValue: { fontSize: 19, fontWeight: '900', letterSpacing: -0.5 },
+  statLabel: { fontSize: 12, fontWeight: '700' },
 
-  statsStrip: {
-    flexDirection: 'row', marginHorizontal: 16, marginTop: -1,
-    borderRadius: 20, borderWidth: StyleSheet.hairlineWidth,
-    paddingVertical: 18, paddingHorizontal: 8,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1, shadowRadius: 12, elevation: 5,
-  },
-  statItem: { flex: 1, alignItems: 'center', gap: 3 },
-  statValue: { fontSize: 19, fontWeight: '800', letterSpacing: -0.5 },
-  statLabel: { fontSize: 11, fontWeight: '500' },
-  statDivider: { width: StyleSheet.hairlineWidth, marginVertical: 4 },
+  list: { marginHorizontal: spacing.screen, borderRadius: radius.lg, overflow: 'hidden' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 13 },
+  rowIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  rowSub: { fontSize: 12, fontWeight: '600', marginTop: 2 },
+  copy: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.pill },
+  copyText: { fontSize: 12, fontWeight: '800' },
 
-  sectionRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    marginHorizontal: 20, marginTop: 28, marginBottom: 12,
-  },
-  sectionTitle: { fontSize: 17, fontWeight: '800', letterSpacing: -0.3 },
-  sectionLink: { fontSize: 14, fontWeight: '600' },
-
-  listCard: {
-    marginHorizontal: 16, borderRadius: 20,
-    borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden',
-  },
-  row: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingVertical: 14, gap: 12,
-  },
-  rowIconWrap: {
-    width: 36, height: 36, borderRadius: 10,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  rowLabel: { flex: 1, fontSize: 15 },
-  rowValue: { fontSize: 14 },
-  sep: { height: StyleSheet.hairlineWidth, marginLeft: 64 },
-
-  cardRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingVertical: 12, gap: 12,
-  },
-  reorderCol: { alignItems: 'center' },
-  cardIconWrap: {
-    width: 40, height: 40, borderRadius: 12,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  cardAlias: { fontSize: 15, fontWeight: '600' },
-  cardSub: { fontSize: 12, marginTop: 2 },
-  copyBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10,
-  },
-  copyText: { fontSize: 12, fontWeight: '600' },
-
-  settingsCol: { marginHorizontal: 16, gap: 10 },
-  settingCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    borderRadius: 18, borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 16, paddingVertical: 14,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04, shadowRadius: 6, elevation: 2,
-  },
-  settingValue: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
-  settingValueText: { fontSize: 12, fontWeight: '600' },
-
-  signOutBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    marginHorizontal: 16, marginTop: 28, borderRadius: 20,
-    paddingVertical: 16, gap: 8,
-  },
-  signOutText: { fontSize: 16, fontWeight: '700' },
-  version: { textAlign: 'center', fontSize: 12, marginTop: 16, marginBottom: 8 },
+  setting: { flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: radius.md, paddingHorizontal: 18, paddingVertical: 17 },
+  settingLabel: { flex: 1, fontSize: 16, fontWeight: '800' },
+  settingValue: { fontSize: 13, fontWeight: '800' },
+  version: { textAlign: 'center', fontSize: 12, fontWeight: '700', marginTop: 24 },
 });
