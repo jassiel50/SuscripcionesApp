@@ -1,27 +1,17 @@
 /**
- * Subly Design System — tokens
+ * Subly Design System — tokens (monocromático)
  *
- * Inspirado en UIs tipo "fintech soft": fondo claro, tarjetas grises muy
- * suaves, acentos con gradiente azul → índigo, tipografía pesada (800-900)
- * para cifras y títulos, y superficies con radios grandes.
+ * Paleta blanco y negro: fondo blanco, tarjetas gris muy claro y el "ink"
+ * (negro en modo claro / blanco en modo oscuro) para todo lo que es énfasis:
+ * pills activas, tab bar, botones principales, cifras. Los gradientes son
+ * sutiles (negro → grafito) sólo para dar profundidad.
  *
- * Todo color de la app debe salir de aquí (vía `useTheme()`), nunca hardcodeado
- * en una pantalla. Así el modo oscuro y futuros temas funcionan gratis.
+ * El único color funcional es el rojo de `urgent` (cobro en ≤ 3 días o
+ * presupuesto excedido). Los logos de marca conservan su color porque son
+ * contenido, no UI.
+ *
+ * Todo color de la app debe salir de aquí (vía `useTheme()`), nunca hardcodeado.
  */
-
-export const palette = {
-  blue500: '#3E63F5',
-  blue400: '#5B8DEF',
-  indigo500: '#5B5BF0',
-  violet500: '#7C5CFA',
-  green500: '#22C55E',
-  green400: '#4ADE80',
-  red500: '#EF4444',
-  red400: '#F87171',
-  amber500: '#F59E0B',
-  white: '#FFFFFF',
-  black: '#000000',
-} as const;
 
 type Gradient = readonly [string, string];
 
@@ -29,80 +19,87 @@ export interface ThemeColors {
   bg: string; surface: string; surfaceAlt: string; card: string; cardBorder: string;
   separator: string; overlay: string;
   text: string; subtext: string; muted: string;
+  /** Color de énfasis (negro en claro, blanco en oscuro). */
+  ink: string;
+  /** Texto/iconos sobre `ink` o `gradient`. */
+  onInk: string;
   accent: string; accentSoft: string; accentText: string;
   gradient: Gradient; gradientAlt: Gradient;
+  /** Escala de grises para series de gráficas (de mayor a menor contraste). */
+  chart: readonly string[];
   success: string; successSoft: string; warning: string; warningSoft: string;
   urgent: string; urgentSoft: string;
   tabBar: string; shadow: string; primary: string; primaryText: string;
 }
 
 const LIGHT: ThemeColors = {
-  // Superficies
   bg:          '#FFFFFF',
-  surface:     '#F4F5F9',   // tarjetas "soft" (como la referencia)
-  surfaceAlt:  '#EEF1FB',   // variante con tinte de marca
+  surface:     '#F4F4F5',
+  surfaceAlt:  '#EFEFF1',
   card:        '#FFFFFF',
-  cardBorder:  'rgba(15,23,42,0.06)',
-  separator:   '#E8EBF2',
-  overlay:     'rgba(15,23,42,0.45)',
+  cardBorder:  'rgba(0,0,0,0.06)',
+  separator:   '#E4E4E7',
+  overlay:     'rgba(0,0,0,0.45)',
 
-  // Texto
-  text:        '#0B1020',
-  subtext:     '#6B7280',
-  muted:       '#9CA3AF',
+  text:        '#09090B',
+  subtext:     '#71717A',
+  muted:       '#A1A1AA',
 
-  // Marca
-  accent:      palette.blue500,
-  accentSoft:  '#E8EEFF',
+  ink:         '#09090B',
+  onInk:       '#FFFFFF',
+  accent:      '#09090B',
+  accentSoft:  '#E9E9EC',
   accentText:  '#FFFFFF',
-  gradient:    [palette.blue500, palette.blue400] as const,
-  gradientAlt: [palette.indigo500, palette.violet500] as const,
+  gradient:    ['#09090B', '#3F3F46'],
+  gradientAlt: ['#18181B', '#52525B'],
+  chart:       ['#09090B', '#52525B', '#8E8E96', '#B4B4BB', '#D4D4D8', '#E9E9EC'],
 
-  // Estados
-  success:     '#16A34A',
-  successSoft: '#DCFCE7',
-  warning:     '#D97706',
-  warningSoft: '#FEF3C7',
-  urgent:      palette.red500,
-  urgentSoft:  '#FEE2E2',
+  success:     '#09090B',
+  successSoft: '#EDEDEF',
+  warning:     '#09090B',
+  warningSoft: '#EDEDEF',
+  urgent:      '#DC2626',
+  urgentSoft:  '#FDECEC',
 
-  // Legacy (compatibilidad con componentes existentes)
-  tabBar:      '#FFFFFF',
-  shadow:      '#1E2A78',
-  primary:     '#0B1020',
+  tabBar:      '#09090B',
+  shadow:      '#000000',
+  primary:     '#09090B',
   primaryText: '#FFFFFF',
 };
 
 const DARK: ThemeColors = {
-  bg:          '#070A14',
-  surface:     '#121726',
-  surfaceAlt:  '#161D33',
-  card:        '#121726',
-  cardBorder:  'rgba(255,255,255,0.07)',
-  separator:   '#1F2637',
-  overlay:     'rgba(0,0,0,0.6)',
+  bg:          '#000000',
+  surface:     '#141416',
+  surfaceAlt:  '#18181B',
+  card:        '#141416',
+  cardBorder:  'rgba(255,255,255,0.08)',
+  separator:   '#27272A',
+  overlay:     'rgba(0,0,0,0.65)',
 
-  text:        '#F3F5FA',
-  subtext:     '#98A2B3',
-  muted:       '#667085',
+  text:        '#FAFAFA',
+  subtext:     '#A1A1AA',
+  muted:       '#71717A',
 
-  accent:      '#6A8BFF',
-  accentSoft:  '#1A2550',
-  accentText:  '#FFFFFF',
-  gradient:    ['#4A6CF7', '#6F9BFF'] as const,
-  gradientAlt: ['#6366F1', '#8B5CF6'] as const,
+  ink:         '#FAFAFA',
+  onInk:       '#09090B',
+  accent:      '#FAFAFA',
+  accentSoft:  '#27272A',
+  accentText:  '#09090B',
+  gradient:    ['#FFFFFF', '#D4D4D8'],
+  gradientAlt: ['#E4E4E7', '#A1A1AA'],
+  chart:       ['#FAFAFA', '#C4C4CA', '#9A9AA2', '#71717A', '#52525B', '#3F3F46'],
 
-  success:     palette.green400,
-  successSoft: '#0B2E1A',
-  warning:     '#FBBF24',
-  warningSoft: '#3A2A07',
-  urgent:      palette.red400,
-  urgentSoft:  '#3B0D12',
+  success:     '#FAFAFA',
+  successSoft: '#1F1F22',
+  warning:     '#FAFAFA',
+  warningSoft: '#1F1F22',
+  urgent:      '#F87171',
+  urgentSoft:  '#2A1215',
 
-  tabBar:      '#121726',
+  tabBar:      '#FAFAFA',
   shadow:      '#000000',
-  primary:     '#F3F5FA',
-  primaryText: '#0B1020',
+  primary:     '#FAFAFA',
+  primaryText: '#09090B',
 };
 
 export const THEMES = { light: LIGHT, dark: DARK };

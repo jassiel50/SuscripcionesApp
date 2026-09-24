@@ -7,7 +7,7 @@ import { isExpoGo } from '../utils/env';
  * expo-router (UITabBar real, Liquid Glass en iOS 26). Se pierde el botón
  * central "+" y el look con gradiente del diseño Subly.
  *
- * false (default) → Tab bar flotante con gradiente + FAB central en todas
+ * false (default) → Tab bar flotante monocromática + FAB central en todas
  * las plataformas (Expo Go incluido), idéntico en iOS y Android.
  */
 export const USE_NATIVE_TABS = false;

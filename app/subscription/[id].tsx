@@ -8,12 +8,12 @@ import { useSubscriptions } from '../../src/hooks/useSubscriptions';
 import { useTheme } from '../../src/hooks/useTheme';
 import { usePaymentCards } from '../../src/hooks/usePaymentCards';
 import { CardChip } from '../../src/components/CardPickerModal';
-import { Gauge, GradientButton, GradientCircle, NotchCard, Tag, type IoniconName } from '../../src/components/ui';
+import { GradientButton, GradientCircle, NotchCard, Tag, type IoniconName } from '../../src/components/ui';
 import { SubIcon } from '../../src/utils/brandIcons';
 import { daysUntilRenewal, monthlyEquivalent, nextRenewalDate, relativeDayLabel } from '../../src/utils/dates';
 import { money, moneyParts, moneyShort } from '../../src/utils/format';
 import { radius, spacing, type } from '../../src/theme/tokens';
-import { CATEGORY_COLORS, CATEGORY_LABELS, PAYMENT_METHOD_LABELS, type PaymentMethod } from '../../src/types';
+import { CATEGORY_LABELS, PAYMENT_METHOD_LABELS, type PaymentMethod } from '../../src/types';
 
 const PAYMENT_ICON: Record<PaymentMethod, IoniconName> = {
   credit_card: 'card-outline', debit_card: 'card', paypal: 'logo-paypal',
@@ -65,10 +65,10 @@ export default function SubscriptionDetailScreen() {
   };
 
   const rows: { icon: IoniconName; label: string; value: string; tint: string }[] = [
-    { icon: 'calendar', label: 'Próximo cobro', value: next.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }), tint: urgent ? colors.urgent : colors.accent },
-    { icon: 'repeat', label: 'Ciclo', value: sub.billing_cycle === 'monthly' ? 'Mensual' : 'Anual', tint: colors.success },
-    { icon: PAYMENT_ICON[sub.payment_method] ?? 'card-outline', label: 'Método de pago', value: PAYMENT_METHOD_LABELS[sub.payment_method] ?? 'Otro', tint: '#7C5CFA' },
-    { icon: sub.remind_me ? 'notifications' : 'notifications-off', label: 'Recordatorio', value: sub.remind_me ? '1 día antes' : 'Desactivado', tint: colors.warning },
+    { icon: 'calendar', label: 'Próximo cobro', value: next.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }), tint: urgent ? colors.urgent : colors.text },
+    { icon: 'repeat', label: 'Ciclo', value: sub.billing_cycle === 'monthly' ? 'Mensual' : 'Anual', tint: colors.text },
+    { icon: PAYMENT_ICON[sub.payment_method] ?? 'card-outline', label: 'Método de pago', value: PAYMENT_METHOD_LABELS[sub.payment_method] ?? 'Otro', tint: colors.text },
+    { icon: sub.remind_me ? 'notifications' : 'notifications-off', label: 'Recordatorio', value: sub.remind_me ? '1 día antes' : 'Desactivado', tint: colors.text },
     { icon: 'time', label: 'Agregada', value: new Date(sub.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }), tint: colors.subtext },
   ];
 
@@ -85,7 +85,7 @@ export default function SubscriptionDetailScreen() {
           badge={<GradientCircle size={62} icon="pencil" iconSize={24} onPress={() => router.push(`/subscription/new?id=${sub.id}`)} accessibilityLabel="Editar" />}
         >
           <View style={{ paddingRight: 84 }}>
-            <Tag label={CATEGORY_LABELS[sub.category]} color={CATEGORY_COLORS[sub.category]} solid />
+            <Tag label={CATEGORY_LABELS[sub.category]} solid />
             <Text style={[s.heroName, { color: colors.text }]} numberOfLines={2}>{sub.name}</Text>
           </View>
           <Text style={[s.heroDesc, { color: colors.text }]} numberOfLines={3}>
@@ -100,45 +100,45 @@ export default function SubscriptionDetailScreen() {
           </View>
         </NotchCard>
 
-        {/* Gauges */}
-        <View style={s.gauges}>
-          <View style={[s.gaugeCard, { backgroundColor: colors.surface }]}>
-            <Text style={[s.gaugeTitle, { color: colors.text }]}>Siguiente cobro</Text>
-            <Gauge value={cycleProgress} color={urgent ? colors.urgent : colors.accent}>
-              <Ionicons name="hourglass-outline" size={16} color={colors.subtext} />
-              <Text style={[s.gaugeValue, { color: colors.text }]}>{Math.max(days, 0)}</Text>
-              <Text style={[s.gaugeUnit, { color: colors.subtext }]}>{days === 1 ? 'día' : 'días'}</Text>
-            </Gauge>
-            <Text style={[s.gaugeFoot, { color: colors.subtext }]}>{relativeDayLabel(days)}</Text>
+        {/* Progreso del ciclo (barra simple: más clara que un medidor aquí) */}
+        <View style={[s.cycle, { backgroundColor: colors.surface }]}>
+          <View style={s.cycleTop}>
+            <Text style={[type.h3, { color: colors.text }]}>Siguiente cobro</Text>
+            <Text style={[s.cycleDays, { color: urgent ? colors.urgent : colors.text }]}>{relativeDayLabel(days)}</Text>
           </View>
-          <View style={[s.gaugeCard, { backgroundColor: colors.surface }]}>
-            <Text style={[s.gaugeTitle, { color: colors.text }]}>De tu gasto</Text>
-            <Gauge value={share} color="#7C5CFA">
-              <Ionicons name="pie-chart-outline" size={16} color={colors.subtext} />
-              <Text style={[s.gaugeValue, { color: colors.text }]}>{Math.round(share * 100)}%</Text>
-            </Gauge>
-            <Text style={[s.gaugeFoot, { color: colors.subtext }]}>{money(monthly)}/mes</Text>
+          <View style={[s.cycleTrack, { backgroundColor: colors.separator }]}>
+            <View style={[s.cycleFill, { width: `${Math.max(cycleProgress, 0.03) * 100}%`, backgroundColor: urgent ? colors.urgent : colors.ink }]} />
           </View>
+          <Text style={[s.cycleFoot, { color: colors.subtext }]}>
+            {next.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })}
+          </Text>
         </View>
 
-        {/* Insights */}
+        {/* Cifras clave */}
         <View style={s.insights}>
-          <View style={[s.insight, { backgroundColor: colors.accentSoft }]}>
-            <Text style={[s.insightLabel, { color: colors.accent }]}>Al año</Text>
-            <Text style={[s.insightValue, { color: colors.text }]}>{moneyShort(annual)}</Text>
-          </View>
-          <View style={[s.insight, { backgroundColor: colors.successSoft }]}>
-            <Text style={[s.insightLabel, { color: colors.success }]}>Pagado aprox.</Text>
-            <Text style={[s.insightValue, { color: colors.text }]}>{moneyShort(paidApprox)}</Text>
-          </View>
+          {[
+            { label: 'Al mes', value: moneyShort(monthly) },
+            { label: 'Al año', value: moneyShort(annual) },
+            { label: 'De tu gasto', value: `${Math.round(share * 100)}%` },
+          ].map(it => (
+            <View key={it.label} style={[s.insight, { backgroundColor: colors.surface }]}>
+              <Text style={[s.insightValue, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>{it.value}</Text>
+              <Text style={[s.insightLabel, { color: colors.subtext }]}>{it.label}</Text>
+            </View>
+          ))}
         </View>
+        {paidApprox > 0 && (
+          <Text style={[s.paid, { color: colors.subtext }]}>
+            Llevas aprox. <Text style={{ color: colors.text, fontWeight: '900' }}>{moneyShort(paidApprox)}</Text> pagados desde que la agregaste.
+          </Text>
+        )}
 
         {/* Detalles */}
         <Text style={[s.section, { color: colors.text }]}>Detalles</Text>
         <View style={[s.list, { backgroundColor: colors.surface }]}>
           {rows.map((row, i) => (
             <View key={row.label} style={[s.row, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.separator }]}>
-              <View style={[s.rowIcon, { backgroundColor: row.tint + '1F' }]}>
+              <View style={[s.rowIcon, { backgroundColor: row.tint === colors.urgent ? colors.urgentSoft : colors.bg }]}>
                 <Ionicons name={row.icon} size={17} color={row.tint} />
               </View>
               <Text style={[s.rowLabel, { color: colors.subtext }]} numberOfLines={1}>{row.label}</Text>
@@ -159,11 +159,11 @@ export default function SubscriptionDetailScreen() {
               <View style={{ flex: 1, gap: 4 }}>
                 <Text style={[type.bodyBold, { color: colors.text }]}>{linkedCard.alias}</Text>
                 {linkedCard.kind === 'clabe' && linkedCard.clabe
-                  ? <Text style={[s.clabe, { color: colors.accent }]}>{linkedCard.clabe.replace(/(\d{4})(?=\d)/g, '$1 ')}</Text>
+                  ? <Text style={[s.clabe, { color: colors.text }]}>{linkedCard.clabe.replace(/(\d{4})(?=\d)/g, '$1 ')}</Text>
                   : <Text style={{ color: colors.subtext, fontWeight: '600' }}>{linkedCard.bank}</Text>}
               </View>
               {linkedCard.kind === 'clabe'
-                ? <Ionicons name="copy-outline" size={20} color={colors.accent} />
+                ? <Ionicons name="copy-outline" size={20} color={colors.text} />
                 : <CardChip card={linkedCard} colors={colors} />}
             </Pressable>
           </>
@@ -193,17 +193,18 @@ const s = StyleSheet.create({
   heroDec: { fontSize: 18, fontWeight: '800' },
   heroPer: { fontSize: 13, fontWeight: '700' },
 
-  gauges: { flexDirection: 'row', gap: 12, marginHorizontal: spacing.screen, marginTop: 14 },
-  gaugeCard: { flex: 1, borderRadius: radius.lg, paddingVertical: 16, alignItems: 'center', gap: 6 },
-  gaugeTitle: { fontSize: 14, fontWeight: '800', alignSelf: 'flex-start', marginLeft: 16 },
-  gaugeValue: { fontSize: 22, fontWeight: '900', letterSpacing: -0.5 },
-  gaugeUnit: { fontSize: 11, fontWeight: '700', marginTop: -2 },
-  gaugeFoot: { fontSize: 13, fontWeight: '800' },
+  cycle: { marginHorizontal: spacing.screen, marginTop: 14, borderRadius: radius.lg, padding: 18, gap: 12 },
+  cycleTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  cycleDays: { fontSize: 15, fontWeight: '900' },
+  cycleTrack: { height: 8, borderRadius: 4, overflow: 'hidden' },
+  cycleFill: { height: 8, borderRadius: 4 },
+  cycleFoot: { fontSize: 13, fontWeight: '700' },
 
-  insights: { flexDirection: 'row', gap: 12, marginHorizontal: spacing.screen, marginTop: 12 },
-  insight: { flex: 1, borderRadius: radius.md, padding: 14, gap: 4 },
-  insightLabel: { fontSize: 12, fontWeight: '800' },
-  insightValue: { fontSize: 22, fontWeight: '900', letterSpacing: -0.6 },
+  insights: { flexDirection: 'row', gap: 10, marginHorizontal: spacing.screen, marginTop: 10 },
+  insight: { flex: 1, borderRadius: radius.md, padding: 14, gap: 2 },
+  insightLabel: { fontSize: 12, fontWeight: '700' },
+  insightValue: { fontSize: 20, fontWeight: '900', letterSpacing: -0.6 },
+  paid: { fontSize: 13, fontWeight: '600', marginHorizontal: spacing.screen, marginTop: 12 },
 
   section: { ...type.h2, marginHorizontal: spacing.screen, marginTop: 26, marginBottom: 12 },
   list: { marginHorizontal: spacing.screen, borderRadius: radius.lg, overflow: 'hidden' },

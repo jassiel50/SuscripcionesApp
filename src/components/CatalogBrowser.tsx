@@ -123,7 +123,7 @@ export default function CatalogBrowser({
                       <Text style={[s.planPer, { color: colors.subtext }]}>/mes</Text>
                     </View>
                     <View style={[s.planGo, { backgroundColor: colors.accent }]}>
-                      <Ionicons name="add" size={18} color="#fff" />
+                      <Ionicons name="add" size={18} color={colors.onInk} />
                     </View>
                   </PressableScale>
                 ))}

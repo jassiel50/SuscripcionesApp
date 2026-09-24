@@ -9,10 +9,10 @@ import { useAuth } from '../../src/hooks/useAuth';
 import { useTheme } from '../../src/hooks/useTheme';
 import BudgetModal from '../../src/components/BudgetModal';
 import {
-  AreaChart, EmptyState, FeaturedSubscriptionCard, FilterPills, IconButton,
+  EmptyState, FeaturedSubscriptionCard, FilterPills, IconButton,
   PressableScale, SearchField, SectionHeader, SubscriptionRow, UpcomingTile, useTabBarSpace,
 } from '../../src/components/ui';
-import { daysUntilRenewal, greeting, MONTHS_SHORT, totalForMonth } from '../../src/utils/dates';
+import { daysUntilRenewal, greeting, totalForMonth } from '../../src/utils/dates';
 import { moneyParts, moneyShort, pluralize } from '../../src/utils/format';
 import { radius, spacing, type } from '../../src/theme/tokens';
 import type { Subscription } from '../../src/types';
@@ -33,13 +33,13 @@ export default function HomeScreen() {
   const firstName = (user?.displayName ?? '').split(' ')[0];
   const open = (sub: Subscription) => router.push(`/subscription/${sub.id}`);
 
-  // Próximos 6 meses de cobros reales (mensuales + anuales que caen en cada mes)
-  const trend = useMemo(() => {
+  // Cobros reales: próximos 7 días y mes calendario en curso
+  const { next7, thisMonth } = useMemo(() => {
     const now = new Date();
-    return Array.from({ length: 6 }, (_, i) => {
-      const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
-      return { label: MONTHS_SHORT[d.getMonth()], value: totalForMonth(subscriptions, d.getFullYear(), d.getMonth()) };
-    });
+    return {
+      next7: subscriptions.filter(sb => daysUntilRenewal(sb) <= 7).reduce((t, sb) => t + sb.price, 0),
+      thisMonth: totalForMonth(subscriptions, now.getFullYear(), now.getMonth()),
+    };
   }, [subscriptions]);
 
   const [featured, ...rest] = subscriptions;
@@ -68,9 +68,9 @@ export default function HomeScreen() {
 
       {/* ── Header ── */}
       <View style={s.header}>
-        <LinearGradient colors={colors.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.logo}>
-          <Ionicons name="repeat" size={18} color="#fff" />
-        </LinearGradient>
+        <View style={[s.logo, { backgroundColor: colors.ink }]}>
+          <Ionicons name="repeat" size={18} color={colors.onInk} />
+        </View>
         <Text style={[s.brand, { color: colors.text }]}>SUBLY</Text>
         <View style={{ flex: 1 }} />
         <IconButton
@@ -93,45 +93,44 @@ export default function HomeScreen() {
 
         {!searching && (
           <>
-            {/* ── Hero: gasto mensual + tendencia ── */}
-            <View style={[s.hero, { backgroundColor: colors.surfaceAlt }]}>
+            {/* ── Hero: tarjeta negra con gasto mensual y presupuesto ── */}
+            <LinearGradient colors={colors.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.hero}>
               <View style={s.heroTop}>
                 <View style={{ flex: 1 }}>
-                  <Text style={[s.heroLabel, { color: colors.subtext }]}>Gasto mensual</Text>
-                  <View style={s.heroAmountRow}>
-                    <Text style={[s.heroAmount, { color: colors.text }]}>
-                      {int}<Text style={s.heroDec}>.{dec}</Text>
-                    </Text>
-                    <View style={[s.pctChip, { backgroundColor: overBudget ? colors.urgentSoft : colors.accentSoft }]}>
-                      <Ionicons name={overBudget ? 'warning' : 'pie-chart'} size={11} color={overBudget ? colors.urgent : colors.accent} />
-                      <Text style={[s.pctText, { color: overBudget ? colors.urgent : colors.accent }]}>{Math.round(pct * 100)}%</Text>
-                    </View>
-                  </View>
+                  <Text style={[s.heroLabel, { color: colors.onInk }]}>Gasto mensual</Text>
+                  <Text style={[s.heroAmount, { color: colors.onInk }]}>
+                    {int}<Text style={s.heroDec}>.{dec}</Text>
+                  </Text>
                 </View>
-                <Pressable onPress={() => setBudgetOpen(true)} style={[s.budgetPill, { backgroundColor: colors.bg }]} hitSlop={6}>
-                  <Text style={[s.budgetText, { color: colors.text }]}>de {moneyShort(budget)}</Text>
-                  <Ionicons name="chevron-down" size={14} color={colors.text} />
+                <Pressable onPress={() => setBudgetOpen(true)} style={[s.budgetPill, { borderColor: colors.onInk }]} hitSlop={6} accessibilityLabel="Editar presupuesto">
+                  <Text style={[s.budgetText, { color: colors.onInk }]}>de {moneyShort(budget)}</Text>
+                  <Ionicons name="pencil" size={12} color={colors.onInk} />
                 </Pressable>
               </View>
 
-              <View style={[s.track, { backgroundColor: colors.bg }]}>
-                <LinearGradient
-                  colors={overBudget ? [colors.urgent, colors.urgent] : colors.gradient}
-                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                  style={[s.trackFill, { width: `${Math.min(pct, 1) * 100}%` }]}
-                />
+              <View style={[s.track, { backgroundColor: colors.onInk + '33' }]}>
+                <View style={[s.trackFill, { width: `${Math.min(pct, 1) * 100}%`, backgroundColor: overBudget ? colors.urgent : colors.onInk }]} />
               </View>
+              <View style={s.heroMeta}>
+                <Text style={[s.heroMetaText, { color: overBudget ? colors.urgent : colors.onInk }]}>
+                  {overBudget ? `Excedido por ${moneyShort(monthlyTotal - budget)}` : `${Math.round(pct * 100)}% del presupuesto`}
+                </Text>
+                <Text style={[s.heroMetaText, { color: colors.onInk }]}>{pluralize(subscriptions.length, 'activa', 'activas')}</Text>
+              </View>
+            </LinearGradient>
 
-              <AreaChart
-                id="home"
-                data={trend.map(t => t.value)}
-                labels={trend.map(t => t.label)}
-                highlightIndex={0}
-                height={110}
-              />
-              <Text style={[s.heroFoot, { color: colors.subtext }]}>
-                Cobros reales próximos 6 meses · {pluralize(subscriptions.length, 'activa', 'activas')}
-              </Text>
+            {/* ── Resumen rápido (sin gráfica: tres cifras dicen más aquí) ── */}
+            <View style={s.summary}>
+              {[
+                { label: 'Esta semana', value: moneyShort(next7) },
+                { label: 'Este mes', value: moneyShort(thisMonth) },
+                { label: 'Al año', value: moneyShort(monthlyTotal * 12) },
+              ].map(item => (
+                <View key={item.label} style={[s.summaryItem, { backgroundColor: colors.surface }]}>
+                  <Text style={[s.summaryValue, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>{item.value}</Text>
+                  <Text style={[s.summaryLabel, { color: colors.subtext }]}>{item.label}</Text>
+                </View>
+              ))}
             </View>
 
             {/* ── Próximo cobro destacado ── */}
@@ -179,15 +178,15 @@ export default function HomeScreen() {
         {/* ── Descubrir catálogo ── */}
         {!searching && subscriptions.length > 0 && (
           <PressableScale onPress={() => router.push('/catalog')} style={s.discoverWrap}>
-            <LinearGradient colors={colors.gradientAlt} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.discover}>
+            <View style={[s.discover, { backgroundColor: colors.surface }]}>
               <View style={{ flex: 1 }}>
-                <Text style={s.discoverTitle}>Explora el catálogo</Text>
-                <Text style={s.discoverBody}>Netflix, Spotify, ChatGPT, Game Pass… con precios en MXN.</Text>
+                <Text style={[s.discoverTitle, { color: colors.text }]}>Explora el catálogo</Text>
+                <Text style={[s.discoverBody, { color: colors.subtext }]}>Netflix, Spotify, ChatGPT, Game Pass… con precios en MXN.</Text>
               </View>
-              <View style={s.discoverIcon}>
-                <Ionicons name="compass" size={26} color="#fff" />
+              <View style={[s.discoverIcon, { backgroundColor: colors.ink }]}>
+                <Ionicons name="arrow-forward" size={22} color={colors.onInk} />
               </View>
-            </LinearGradient>
+            </View>
           </PressableScale>
         )}
 
@@ -208,30 +207,33 @@ export default function HomeScreen() {
 const s = StyleSheet.create({
   root: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: spacing.screen, paddingTop: 6, paddingBottom: 6 },
-  logo: { width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '-8deg' }] },
+  logo: { width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   brand: { fontSize: 22, fontWeight: '900', letterSpacing: 1.5 },
   hello: { ...type.bodyBold, paddingHorizontal: spacing.screen, marginTop: 6, marginBottom: 14 },
 
-  hero: { marginHorizontal: spacing.screen, marginTop: 18, borderRadius: radius.lg, padding: 18, paddingBottom: 14 },
+  hero: { marginHorizontal: spacing.screen, marginTop: 18, borderRadius: radius.xl, padding: 22 },
   heroTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  heroLabel: { fontSize: 14, fontWeight: '700' },
-  heroAmountRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 },
-  heroAmount: { fontSize: 36, fontWeight: '900', letterSpacing: -1.2 },
+  heroLabel: { fontSize: 14, fontWeight: '700', opacity: 0.7 },
+  heroAmount: { fontSize: 40, fontWeight: '900', letterSpacing: -1.4, marginTop: 4 },
   heroDec: { fontSize: 20, fontWeight: '800' },
-  pctChip: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 7, paddingVertical: 3, borderRadius: radius.xs },
-  pctText: { fontSize: 12, fontWeight: '900' },
-  budgetPill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.pill },
+  budgetPill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.pill, borderWidth: 1 },
   budgetText: { fontSize: 13, fontWeight: '800' },
-  track: { height: 8, borderRadius: 4, overflow: 'hidden', marginTop: 14, marginBottom: 12 },
-  trackFill: { height: 8, borderRadius: 4 },
-  heroFoot: { fontSize: 11, fontWeight: '700', marginTop: 10, textAlign: 'center' },
+  track: { height: 6, borderRadius: 3, overflow: 'hidden', marginTop: 22 },
+  trackFill: { height: 6, borderRadius: 3 },
+  heroMeta: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
+  heroMetaText: { fontSize: 12, fontWeight: '800', opacity: 0.85 },
+
+  summary: { flexDirection: 'row', gap: 10, marginHorizontal: spacing.screen, marginTop: 12 },
+  summaryItem: { flex: 1, borderRadius: radius.md, paddingVertical: 14, paddingHorizontal: 12, gap: 2 },
+  summaryValue: { fontSize: 18, fontWeight: '900', letterSpacing: -0.5 },
+  summaryLabel: { fontSize: 12, fontWeight: '700' },
 
   carousel: { paddingHorizontal: spacing.screen, gap: 12 },
   noResults: { ...type.body, textAlign: 'center', paddingVertical: 24 },
 
   discoverWrap: { marginHorizontal: spacing.screen, marginTop: 26 },
   discover: { borderRadius: radius.lg, padding: 20, flexDirection: 'row', alignItems: 'center', gap: 14 },
-  discoverTitle: { color: '#fff', fontSize: 19, fontWeight: '900', letterSpacing: -0.3 },
-  discoverBody: { color: 'rgba(255,255,255,0.85)', fontSize: 13, fontWeight: '600', marginTop: 4, lineHeight: 18 },
-  discoverIcon: { width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
+  discoverTitle: { fontSize: 18, fontWeight: '900', letterSpacing: -0.3 },
+  discoverBody: { fontSize: 13, fontWeight: '600', marginTop: 4, lineHeight: 18 },
+  discoverIcon: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
 });

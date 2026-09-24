@@ -15,7 +15,7 @@ import { monthlyEquivalent, MONTHS_SHORT, totalForMonth } from '../../src/utils/
 import { money, moneyParts, moneyShort, pluralize } from '../../src/utils/format';
 import { radius, spacing, type } from '../../src/theme/tokens';
 import {
-  CATEGORY_COLORS, CATEGORY_LABELS, PAYMENT_METHOD_LABELS,
+  CATEGORY_LABELS, PAYMENT_METHOD_LABELS,
   type Category, type PaymentMethod, type Subscription,
 } from '../../src/types';
 
@@ -43,8 +43,8 @@ export default function StatisticsScreen() {
     for (const sub of subscriptions) map[sub.category] = (map[sub.category] ?? 0) + monthlyEquivalent(sub);
     return (Object.entries(map) as [Category, number][])
       .sort((a, b) => b[1] - a[1])
-      .map(([cat, total]) => ({ cat, label: CATEGORY_LABELS[cat], color: CATEGORY_COLORS[cat], value: total }));
-  }, [subscriptions]);
+      .map(([cat, total], i) => ({ cat, label: CATEGORY_LABELS[cat], color: colors.chart[i % colors.chart.length], value: total }));
+  }, [subscriptions, colors]);
 
   const top = useMemo(
     () => [...subscriptions].sort((a, b) => monthlyEquivalent(b) - monthlyEquivalent(a)).slice(0, 5),
@@ -61,7 +61,7 @@ export default function StatisticsScreen() {
     if (monthlySubs.length > 0) {
       const savings = monthlySubs.reduce((sum, s) => sum + s.price * 12 * 0.17, 0);
       out.push({
-        icon: 'trending-down', accent: colors.success,
+        icon: 'trending-down', accent: colors.ink,
         title: 'Paga anual y ahorra',
         body: `Pasar ${pluralize(monthlySubs.length, 'plan mensual', 'planes mensuales')} a anual podría ahorrarte ~${moneyShort(savings)}/año (descuento típico del 17%).`,
       });
@@ -71,7 +71,7 @@ export default function StatisticsScreen() {
     const dup = (Object.entries(counts) as [Category, number][]).find(([, n]) => n >= 2);
     if (dup) {
       out.push({
-        icon: 'layers', accent: CATEGORY_COLORS[dup[0]],
+        icon: 'layers', accent: colors.ink,
         title: `${dup[1]} servicios de ${CATEGORY_LABELS[dup[0]]}`,
         body: '¿Los usas todos? Rotar servicios (uno por mes) es una forma fácil de ahorrar.',
       });
@@ -115,29 +115,29 @@ export default function StatisticsScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: bottom }}>
         {/* Hero anual con gráfica */}
         <LinearGradient colors={colors.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.hero}>
-          <Text style={s.heroLabel}>Gasto anual estimado</Text>
-          <Text style={s.heroAmount}>{int}<Text style={s.heroDec}>.{dec}</Text></Text>
-          <Text style={s.heroSub}>{money(monthlyTotal)}/mes · {pluralize(subscriptions.length, 'suscripción', 'suscripciones')}</Text>
+          <Text style={[s.heroLabel, { color: colors.onInk }]}>Gasto anual estimado</Text>
+          <Text style={[s.heroAmount, { color: colors.onInk }]}>{int}<Text style={s.heroDec}>.{dec}</Text></Text>
+          <Text style={[s.heroSub, { color: colors.onInk }]}>{money(monthlyTotal)}/mes · {pluralize(subscriptions.length, 'suscripción', 'suscripciones')}</Text>
           <View style={{ marginTop: 14 }}>
             <AreaChart
               id="stats"
               data={months.map(m => m.value)}
               labels={months.map((m, i) => (i % 2 === 0 ? m.label : ''))}
               highlightIndex={peak}
-              color="#FFFFFF"
-              labelColor="#FFFFFF"
+              color={colors.onInk}
+              labelColor={colors.onInk}
               height={100}
               showDots={false}
             />
           </View>
-          <Text style={s.heroFoot}>Mes más caro: {months[peak]?.label} · {moneyShort(months[peak]?.value ?? 0)}</Text>
+          <Text style={[s.heroFoot, { color: colors.onInk }]}>Mes más caro: {months[peak]?.label} · {moneyShort(months[peak]?.value ?? 0)}</Text>
         </LinearGradient>
 
         {/* Gauges */}
         <View style={s.gauges}>
           <Pressable onPress={() => setBudgetOpen(true)} style={[s.gaugeCard, { backgroundColor: colors.surface }]}>
             <Text style={[s.gaugeTitle, { color: colors.text }]}>Presupuesto</Text>
-            <Gauge value={budgetPct} color={budgetPct > 1 ? colors.urgent : colors.accent}>
+            <Gauge value={budgetPct} color={budgetPct > 1 ? colors.urgent : colors.ink}>
               <Ionicons name="wallet-outline" size={16} color={colors.subtext} />
               <Text style={[s.gaugeValue, { color: colors.text }]}>{Math.round(budgetPct * 100)}%</Text>
             </Gauge>
@@ -145,7 +145,7 @@ export default function StatisticsScreen() {
           </Pressable>
           <View style={[s.gaugeCard, { backgroundColor: colors.surface }]}>
             <Text style={[s.gaugeTitle, { color: colors.text }]}>Mensuales</Text>
-            <Gauge value={monthlyShare} color="#7C5CFA">
+            <Gauge value={monthlyShare} color={colors.ink}>
               <Ionicons name="repeat" size={16} color={colors.subtext} />
               <Text style={[s.gaugeValue, { color: colors.text }]}>{Math.round(monthlyShare * 100)}%</Text>
             </Gauge>
@@ -202,7 +202,7 @@ export default function StatisticsScreen() {
             <View style={{ gap: 10, marginHorizontal: spacing.screen }}>
               {tips.map(tip => (
                 <View key={tip.title} style={[s.tip, { backgroundColor: colors.surface }]}>
-                  <View style={[s.tipIcon, { backgroundColor: tip.accent + '22' }]}>
+                  <View style={[s.tipIcon, { backgroundColor: tip.accent === colors.urgent ? colors.urgentSoft : colors.bg }]}>
                     <Ionicons name={tip.icon} size={20} color={tip.accent} />
                   </View>
                   <View style={{ flex: 1 }}>
@@ -236,11 +236,11 @@ export default function StatisticsScreen() {
 const s = StyleSheet.create({
   root: { flex: 1 },
   hero: { marginHorizontal: spacing.screen, borderRadius: radius.xl, padding: 22, paddingBottom: 16 },
-  heroLabel: { color: 'rgba(255,255,255,0.85)', fontSize: 14, fontWeight: '700' },
-  heroAmount: { color: '#fff', fontSize: 40, fontWeight: '900', letterSpacing: -1.4, marginTop: 2 },
+  heroLabel: { opacity: 0.7, fontSize: 14, fontWeight: '700' },
+  heroAmount: { fontSize: 40, fontWeight: '900', letterSpacing: -1.4, marginTop: 2 },
   heroDec: { fontSize: 20, fontWeight: '800' },
-  heroSub: { color: 'rgba(255,255,255,0.85)', fontSize: 13, fontWeight: '700', marginTop: 2 },
-  heroFoot: { color: 'rgba(255,255,255,0.85)', fontSize: 12, fontWeight: '800', marginTop: 10, textAlign: 'center' },
+  heroSub: { opacity: 0.75, fontSize: 13, fontWeight: '700', marginTop: 2 },
+  heroFoot: { opacity: 0.75, fontSize: 12, fontWeight: '800', marginTop: 10, textAlign: 'center' },
 
   gauges: { flexDirection: 'row', gap: 12, marginHorizontal: spacing.screen, marginTop: 14 },
   gaugeCard: { flex: 1, borderRadius: radius.lg, paddingVertical: 16, alignItems: 'center', gap: 6 },

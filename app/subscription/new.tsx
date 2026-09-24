@@ -26,7 +26,8 @@ import {
 import { PREDEFINED_SUBSCRIPTIONS } from '../../constants/subscriptions';
 
 const CATEGORIES = Object.entries(CATEGORY_LABELS) as [Category, string][];
-const COLORS = ['#E50914', '#1DB954', '#3E63F5', '#FF9500', '#7C5CFA', '#10B981', '#EC4899', '#0EA5E9', '#111827'];
+// Tonos para el ícono de letra (servicios sin logo): escala de grises acorde a la paleta.
+const COLORS = ['#09090B', '#27272A', '#3F3F46', '#52525B', '#71717A', '#A1A1AA'];
 
 const PAYMENT_METHODS: { key: PaymentMethod; label: string; icon: IoniconName }[] = [
   { key: 'credit_card',   label: 'Crédito',       icon: 'card-outline' },
@@ -161,12 +162,12 @@ export default function NewSubscriptionScreen() {
           header={
             <PressableScale onPress={() => { setInitialized(true); setMode('form'); }} style={s.customWrap}>
               <LinearGradient colors={colors.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.custom}>
-                <View style={s.customIcon}><Ionicons name="create-outline" size={22} color="#fff" /></View>
+                <View style={[s.customIcon, { borderColor: colors.onInk }]}><Ionicons name="create-outline" size={22} color={colors.onInk} /></View>
                 <View style={{ flex: 1 }}>
-                  <Text style={s.customTitle}>Personalizada</Text>
-                  <Text style={s.customSub}>Cualquier servicio, precio libre</Text>
+                  <Text style={[s.customTitle, { color: colors.onInk }]}>Personalizada</Text>
+                  <Text style={[s.customSub, { color: colors.onInk }]}>Cualquier servicio, precio libre</Text>
                 </View>
-                <Ionicons name="arrow-forward" size={20} color="#fff" />
+                <Ionicons name="arrow-forward" size={20} color={colors.onInk} />
               </LinearGradient>
             </PressableScale>
           }
@@ -303,7 +304,7 @@ export default function NewSubscriptionScreen() {
               <Text style={[type.bodyBold, { color: colors.text }]}>Recordatorio</Text>
               <Text style={[s.toggleSub, { color: colors.subtext }]}>Te avisamos un día antes a las 9:00</Text>
             </View>
-            <Switch value={remind} onValueChange={setRemind} trackColor={{ false: colors.separator, true: colors.accent }} thumbColor="#fff" ios_backgroundColor={colors.separator} />
+            <Switch value={remind} onValueChange={setRemind} trackColor={{ false: colors.separator, true: colors.ink }} thumbColor={colors.bg} ios_backgroundColor={colors.separator} />
           </View>
 
           {/* Método de pago */}
@@ -313,9 +314,9 @@ export default function NewSubscriptionScreen() {
               const active = paymentMethod === pm.key;
               return (
                 <PressableScale key={pm.key} onPress={() => setPaymentMethod(pm.key)} style={s.pmCell}>
-                  <View style={[s.pm, active ? { backgroundColor: colors.accent } : { backgroundColor: colors.surface }]}>
-                    <Ionicons name={pm.icon} size={20} color={active ? '#fff' : colors.subtext} />
-                    <Text style={[s.pmLabel, { color: active ? '#fff' : colors.text }]} numberOfLines={1}>{pm.label}</Text>
+                  <View style={[s.pm, active ? { backgroundColor: colors.ink } : { backgroundColor: colors.surface }]}>
+                    <Ionicons name={pm.icon} size={20} color={active ? colors.onInk : colors.subtext} />
+                    <Text style={[s.pmLabel, { color: active ? colors.onInk : colors.text }]} numberOfLines={1}>{pm.label}</Text>
                   </View>
                 </PressableScale>
               );
@@ -375,9 +376,9 @@ function Label({ text }: { text: string }) {
 const s = StyleSheet.create({
   customWrap: { marginHorizontal: spacing.screen, marginTop: 12 },
   custom: { flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: radius.lg, padding: 16 },
-  customIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
-  customTitle: { color: '#fff', fontSize: 17, fontWeight: '900' },
-  customSub: { color: 'rgba(255,255,255,0.85)', fontSize: 12, fontWeight: '600', marginTop: 2 },
+  customIcon: { width: 44, height: 44, borderRadius: 22, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  customTitle: { fontSize: 17, fontWeight: '900' },
+  customSub: { opacity: 0.75, fontSize: 12, fontWeight: '600', marginTop: 2 },
 
   preview: { flexDirection: 'row', alignItems: 'center', gap: 16, marginHorizontal: spacing.screen, marginTop: 16, borderRadius: radius.lg, padding: 18 },
   previewPh: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center' },

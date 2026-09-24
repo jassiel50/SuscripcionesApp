@@ -153,7 +153,7 @@ export default function LoginScreen() {
           {/* Brand */}
           <View style={s.brandSection}>
             <LinearGradient colors={colors.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.logo}>
-              <Ionicons name="repeat" size={54} color="#fff" />
+              <Ionicons name="repeat" size={54} color={colors.onInk} />
             </LinearGradient>
             <Text style={[s.appName, { color: colors.text }]}>SUBLY</Text>
             <Text style={[s.tagline, { color: colors.subtext }]}>
@@ -162,7 +162,7 @@ export default function LoginScreen() {
             <View style={s.features}>
               {([['notifications', 'Recordatorios'], ['pie-chart', 'Estadísticas'], ['calendar', 'Calendario']] as const).map(([icon, label]) => (
                 <View key={label} style={[s.feature, { backgroundColor: colors.surface }]}>
-                  <Ionicons name={icon} size={14} color={colors.accent} />
+                  <Ionicons name={icon} size={14} color={colors.ink} />
                   <Text style={[s.featureText, { color: colors.text }]}>{label}</Text>
                 </View>
               ))}
@@ -179,9 +179,9 @@ export default function LoginScreen() {
             )}
 
             {resetSent && (
-              <View style={[s.errorBox, { backgroundColor: '#34C75922', borderColor: '#34C759' }]}>
-                <Ionicons name="checkmark-circle-outline" size={16} color="#34C759" />
-                <Text style={[s.errorText, { color: '#34C759' }]}>
+              <View style={[s.errorBox, { backgroundColor: colors.surface, borderColor: colors.ink }]}>
+                <Ionicons name="checkmark-circle-outline" size={16} color={colors.ink} />
+                <Text style={[s.errorText, { color: colors.ink }]}>
                   Correo de recuperación enviado
                 </Text>
               </View>
@@ -209,17 +209,17 @@ export default function LoginScreen() {
             {/* Apple — iOS only */}
             {Platform.OS === 'ios' && (
               <TouchableOpacity
-                style={[s.btn, s.btnApple]}
+                style={[s.btn, s.btnApple, { backgroundColor: colors.ink }]}
                 onPress={handleApple}
                 disabled={!!loading}
                 activeOpacity={0.8}
               >
                 {loading === 'apple' ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={colors.onInk} />
                 ) : (
                   <>
-                    <Ionicons name="logo-apple" size={22} color="#fff" />
-                    <Text style={[s.btnText, { color: '#fff' }]}>Continuar con Apple</Text>
+                    <Ionicons name="logo-apple" size={22} color={colors.onInk} />
+                    <Text style={[s.btnText, { color: colors.onInk }]}>Continuar con Apple</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -304,9 +304,9 @@ export default function LoginScreen() {
                 <TouchableOpacity onPress={handleEmail} disabled={!!loading} activeOpacity={0.85}>
                   <LinearGradient colors={colors.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[s.btn, { borderWidth: 0 }]}>
                     {loading === 'email' ? (
-                      <ActivityIndicator color="#fff" />
+                      <ActivityIndicator color={colors.onInk} />
                     ) : (
-                      <Text style={[s.btnText, { color: '#fff', fontWeight: '800' }]}>
+                      <Text style={[s.btnText, { color: colors.onInk, fontWeight: '800' }]}>
                         {emailMode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
                       </Text>
                     )}
@@ -316,7 +316,7 @@ export default function LoginScreen() {
                 {/* Forgot password */}
                 {emailMode === 'login' && (
                   <TouchableOpacity onPress={handleForgotPassword} style={s.forgotBtn}>
-                    <Text style={[s.forgotText, { color: colors.accent }]}>
+                    <Text style={[s.forgotText, { color: colors.text }]}>
                       ¿Olvidaste tu contraseña?
                     </Text>
                   </TouchableOpacity>
@@ -352,9 +352,9 @@ const s = StyleSheet.create({
   brandSection: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14, minHeight: 220 },
   logo: {
     width: 108, height: 108, borderRadius: 34,
-    alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '-8deg' }],
-    shadowColor: '#3E63F5', shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.35, shadowRadius: 24, elevation: 12,
+    alignItems: 'center', justifyContent: 'center', 
+    shadowColor: '#000', shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.25, shadowRadius: 24, elevation: 12,
   },
   appName: { fontSize: 46, fontWeight: '900', letterSpacing: 3, marginTop: 8 },
   tagline: { fontSize: 18, fontWeight: '700', textAlign: 'center', lineHeight: 25 },

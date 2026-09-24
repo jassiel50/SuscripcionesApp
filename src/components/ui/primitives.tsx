@@ -52,9 +52,9 @@ export function GradientCircle({
     <LinearGradient
       colors={alt ? colors.gradientAlt : colors.gradient}
       start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-      style={[{ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center' }, floatShadow(colors.accent, 0.6)]}
+      style={[{ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center' }, floatShadow(colors.shadow, 0.35)]}
     >
-      {icon ? <Ionicons name={icon} size={iconSize ?? size * 0.42} color="#fff" /> : children}
+      {icon ? <Ionicons name={icon} size={iconSize ?? size * 0.42} color={colors.onInk} /> : children}
     </LinearGradient>
   );
   if (!onPress) return body;
@@ -78,10 +78,10 @@ export function GradientButton({
       <LinearGradient
         colors={alt ? colors.gradientAlt : colors.gradient}
         start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-        style={[p.gradBtn, floatShadow(colors.accent, 0.7)]}
+        style={[p.gradBtn, floatShadow(colors.shadow, 0.35)]}
       >
-        {icon && <Ionicons name={icon} size={20} color="#fff" />}
-        <Text style={p.gradBtnText}>{label}</Text>
+        {icon && <Ionicons name={icon} size={20} color={colors.onInk} />}
+        <Text style={[p.gradBtnText, { color: colors.onInk }]}>{label}</Text>
       </LinearGradient>
     </PressableScale>
     </View>
@@ -106,7 +106,7 @@ export function FilterPills<T extends string>({
       <PressableScale key={opt.key} onPress={() => onChange(opt.key)} scaleTo={0.94} accessibilityRole="tab" accessibilityState={{ selected: active }}>
         {active ? (
           <LinearGradient colors={colors.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[p.pill, p.pillActive]}>
-            <Text style={[p.pillText, { color: '#fff' }]}>{label}</Text>
+            <Text style={[p.pillText, { color: colors.onInk }]}>{label}</Text>
           </LinearGradient>
         ) : (
           <View style={[p.pill, { borderColor: colors.accent, borderWidth: 1.5 }]}>
@@ -181,10 +181,14 @@ export function IconButton({
 
 // ── Tags / chips pequeños ───────────────────────────────────────────────────
 
-export function Tag({ label, color, solid = false }: { label: string; color: string; solid?: boolean }) {
+export function Tag({ label, color, solid = false }: { label: string; color?: string; solid?: boolean }) {
+  const { colors } = useTheme();
+  const c = color ?? colors.ink;
+  // Sólido: fondo del color con texto invertido. Suave: fondo gris con texto del color.
+  const fg = solid ? (color && color !== colors.ink ? '#FFFFFF' : colors.onInk) : c;
   return (
-    <View style={[p.tag, { backgroundColor: solid ? color : color + '22' }]}>
-      <Text style={[p.tagText, { color: solid ? '#fff' : color }]}>{label}</Text>
+    <View style={[p.tag, { backgroundColor: solid ? c : colors.accentSoft }]}>
+      <Text style={[p.tagText, { color: fg }]}>{label}</Text>
     </View>
   );
 }
@@ -246,7 +250,7 @@ const p = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
     borderRadius: radius.pill, paddingVertical: 17, paddingHorizontal: 24,
   },
-  gradBtnText: { color: '#fff', fontSize: 16, fontWeight: '800', letterSpacing: -0.2 },
+  gradBtnText: { fontSize: 16, fontWeight: '800', letterSpacing: -0.2 },
 
   pillRow: { paddingHorizontal: spacing.screen, gap: 10 },
   pillRowWrap: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: spacing.screen, gap: 10 },

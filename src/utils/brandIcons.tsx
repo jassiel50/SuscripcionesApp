@@ -86,12 +86,14 @@ export function SubIcon({ name, subId, color, size = 36, borderRadius = 9 }: {
     const lum = luminance(icon.hex);
     const tooDarkForDark = dark && lum < 0.10;
     const iconColor  = tooDarkForDark ? '#FFFFFF' : `#${icon.hex}`;
-    const bgColor    = tooDarkForDark ? 'rgba(255,255,255,0.13)' : `#${icon.hex}22`;
+    // Fondo neutro (paleta blanco/negro): el logo conserva su color de marca.
+    const bgColor    = dark ? '#1C1C1F' : '#FFFFFF';
 
     return (
       <View style={{
         width: size, height: size, borderRadius,
         backgroundColor: bgColor,
+        borderWidth: 1, borderColor: dark ? '#2A2A2E' : '#E4E4E7',
         alignItems: 'center', justifyContent: 'center',
       }}>
         <BrandIcon icon={icon} size={iconSize} color={iconColor} />

@@ -11,9 +11,9 @@ import type { IoniconName } from './ui/primitives';
 
 /**
  * Tab bar flotante con gradiente:
- *  - píldora azul con degradado, iconos blancos en outline
- *  - la pestaña activa se marca con un círculo blanco que se desliza (spring)
- *  - FAB central en forma de diamante para "Agregar suscripción"
+ *  - píldora negra (blanca en modo oscuro) con iconos outline invertidos
+ *  - la pestaña activa se marca con un círculo invertido que se desliza (spring)
+ *  - FAB central en forma de diamante (contorno) para "Agregar suscripción"
  */
 
 export const TAB_META: Record<string, { icon: IoniconName; iconActive: IoniconName; label: string }> = {
@@ -52,7 +52,7 @@ export default function FloatingTabBar({ state, navigation }: BottomTabBarProps)
 
   return (
     <View pointerEvents="box-none" style={[s.container, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-      <View style={[s.barShadow, floatShadow(dark ? '#000' : colors.accent, 0.9)]}>
+      <View style={[s.barShadow, floatShadow(colors.shadow, dark ? 0.6 : 0.45)]}>
         <LinearGradient
           colors={colors.gradient}
           start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
@@ -64,6 +64,7 @@ export default function FloatingTabBar({ state, navigation }: BottomTabBarProps)
               pointerEvents="none"
               style={[s.dot, {
                 left: (slotW - DOT) / 2,
+                backgroundColor: colors.onInk,
                 transform: [{
                   translateX: x.interpolate({
                     inputRange: SLOTS.map((_, i) => i),
@@ -91,7 +92,7 @@ export default function FloatingTabBar({ state, navigation }: BottomTabBarProps)
                 <Ionicons
                   name={focused ? meta.iconActive : meta.icon}
                   size={26}
-                  color={focused ? colors.accent : 'rgba(255,255,255,0.95)'}
+                  color={focused ? colors.ink : colors.onInk}
                 />
               </Pressable>
             );
@@ -105,15 +106,11 @@ export default function FloatingTabBar({ state, navigation }: BottomTabBarProps)
           accessibilityLabel="Agregar suscripción"
           style={({ pressed }) => [s.fabWrap, { transform: [{ scale: pressed ? 0.92 : 1 }] }]}
         >
-          <LinearGradient
-            colors={colors.gradientAlt}
-            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-            style={[s.fab, { borderColor: colors.bg }, floatShadow(colors.gradientAlt[1], 0.8)]}
-          >
+          <View style={[s.fab, { backgroundColor: colors.bg, borderColor: colors.ink }, floatShadow(colors.shadow, 0.35)]}>
             <View style={s.fabIcon}>
-              <Ionicons name="add" size={30} color="#fff" />
+              <Ionicons name="add" size={30} color={colors.ink} />
             </View>
-          </LinearGradient>
+          </View>
         </Pressable>
       </View>
     </View>
@@ -125,7 +122,7 @@ const s = StyleSheet.create({
   barShadow: { borderRadius: BAR_H / 2 },
   bar: { height: BAR_H, borderRadius: BAR_H / 2, flexDirection: 'row', alignItems: 'center', overflow: 'visible' },
   slot: { flex: 1, height: BAR_H, alignItems: 'center', justifyContent: 'center' },
-  dot: { position: 'absolute', top: (BAR_H - DOT) / 2, width: DOT, height: DOT, borderRadius: DOT / 2, backgroundColor: '#FFFFFF' },
+  dot: { position: 'absolute', top: (BAR_H - DOT) / 2, width: DOT, height: DOT, borderRadius: DOT / 2 },
   fabWrap: { position: 'absolute', left: '50%', top: -22, marginLeft: -31 },
   fab: { width: 62, height: 62, borderRadius: 18, borderWidth: 4, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '45deg' }] },
   fabIcon: { transform: [{ rotate: '-45deg' }] },

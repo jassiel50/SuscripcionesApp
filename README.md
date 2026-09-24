@@ -4,12 +4,17 @@
 
 App móvil (iOS / Android) hecha con **Expo SDK 57 + Expo Router + Firebase** para registrar suscripciones (Netflix, Spotify, ChatGPT, gimnasio…), ver el gasto mensual/anual, recibir recordatorios antes de cada cobro y vincular cada servicio a la tarjeta o CLABE con la que se paga.
 
-| Claro | Oscuro |
-|---|---|
-| ![Inicio, calendario, estadísticas y perfil](docs/screenshots/overview-light.jpg) | ![Modo oscuro](docs/screenshots/overview-dark.jpg) |
+**Modo claro** — Inicio, lista con filtros, Calendario y Estadísticas
 
-![Listas, filtros, estadísticas y detalle](docs/screenshots/lists-light.jpg)
-![Catálogo, alta y detalle con muesca](docs/screenshots/flow-light.jpg)
+![Modo claro 1](docs/screenshots/light-1.jpg)
+
+**Modo claro** — Estadísticas (ranking y tips), Perfil, Detalle y Alta
+
+![Modo claro 2](docs/screenshots/light-2.jpg)
+
+**Modo oscuro** (paleta invertida)
+
+![Modo oscuro](docs/screenshots/dark.jpg)
 
 > Las capturas se tomaron en Chromium (build web) con datos de ejemplo. En iOS/Android se ven con la tipografía del sistema (SF Pro / Roboto).
 
@@ -296,31 +301,44 @@ El punto más delicado de una app de suscripciones. Reglas:
 
 ## 6. Diseño: Subly Design System
 
-Inspirado en las referencias compartidas (fintech "soft": fondo claro, tarjetas gris-lavanda, acentos con gradiente azul, tipografía muy pesada y una tab bar flotante con gradiente).
+De las referencias se tomó la **forma** (tarjetas soft con radios grandes, tipografía muy pesada, pills de filtro, tarjeta con muesca, tab bar flotante con botón central), no los colores. La paleta es **blanco y negro**.
 
 ### 6.1 Tokens (`src/theme/tokens.ts`)
 
 | Token | Claro | Oscuro | Uso |
 |---|---|---|---|
-| `bg` | `#FFFFFF` | `#070A14` | Fondo de pantalla |
-| `surface` | `#F4F5F9` | `#121726` | Tarjetas "soft" |
-| `surfaceAlt` | `#EEF1FB` | `#161D33` | Héroe con tinte de marca |
-| `accent` | `#3E63F5` | `#6A8BFF` | Acciones, links, selección |
-| `gradient` | `#3E63F5 → #5B8DEF` | `#4A6CF7 → #6F9BFF` | Pills activas, tab bar, botones principales |
-| `gradientAlt` | `#5B5BF0 → #7C5CFA` | `#6366F1 → #8B5CF6` | FAB, banners secundarios |
-| `success` / `warning` / `urgent` | verde / ámbar / rojo | versiones claras | Estados (al corriente, recordatorio, cobro ≤ 3 días) |
+| `bg` | `#FFFFFF` | `#000000` | Fondo de pantalla |
+| `surface` | `#F4F4F5` | `#141416` | Tarjetas "soft" |
+| `text` / `subtext` / `muted` | `#09090B` / `#71717A` / `#A1A1AA` | `#FAFAFA` / `#A1A1AA` / `#71717A` | Jerarquía de texto |
+| `ink` | `#09090B` (negro) | `#FAFAFA` (blanco) | Énfasis: pills activas, tab bar, botones principales, héroes |
+| `onInk` | blanco | negro | Texto e iconos sobre `ink` |
+| `gradient` | `#09090B → #3F3F46` | `#FFFFFF → #D4D4D8` | Degradado sutil de profundidad en héroes y botones |
+| `chart` | 6 grises de negro a gris claro | 6 grises de blanco a grafito | Series de gráficas (dona por categoría) |
+| `urgent` / `urgentSoft` | `#DC2626` / `#FDECEC` | `#F87171` / `#2A1215` | **Único color funcional:** cobro en ≤ 3 días o presupuesto excedido |
 
+- **Modo oscuro = paleta invertida:** lo negro pasa a blanco y viceversa (la tab bar, los héroes y las pills activas se vuelven blancos).
+- **Logos de marca** conservan su color (son contenido, no UI) sobre un círculo neutro con borde fino.
+- Los servicios sin logo usan una letra sobre un tono de gris elegido en el formulario.
 - **Radios:** `xs 8 · sm 12 · md 16 · lg 22 · xl 28 · pill`.
-- **Tipografía:** fuente del sistema (SF Pro / Roboto) con pesos 800–900 para cifras y títulos (`type.display`, `type.title`, `h1…micro`). Cifras grandes con centavos más pequeños.
-- **Sombras:** `floatShadow(color)` teñida con el color de marca para elementos flotantes.
+- **Tipografía:** fuente del sistema (SF Pro / Roboto) con pesos 800–900 para cifras y títulos. Cifras grandes con centavos más pequeños.
+- **Sombras:** `floatShadow()` neutra y suave para elementos flotantes.
+
+### Gráficas: sólo donde aportan
+
+| Pantalla | ¿Gráfica? | Por qué |
+|---|---|---|
+| **Estadísticas** | Sí: curva de 12 meses, 2 medidores (presupuesto, mensuales vs anuales), dona por categoría, barras del top 5 | Es la pantalla de análisis: comparar y ver tendencias |
+| **Inicio** | No: tarjeta negra con el gasto, barra de presupuesto y 3 cifras (semana / mes / año) | Aquí se busca el dato rápido; una curva no dice más que tres números |
+| **Detalle** | No: una barra de progreso hasta el siguiente cobro y 3 cifras (mes / año / % del gasto) | Una sola suscripción no tiene tendencia que graficar |
+| **Calendario** | No | El propio calendario es la visualización |
 
 ### 6.2 Componentes
 
 | Componente | Descripción |
 |---|---|
-| `NotchCard` | Tarjeta con "mordida" cóncava arriba a la derecha dibujada en SVG, donde vive un `GradientCircle` (días restantes, editar). Patrón de la referencia del corazón. |
-| `FloatingTabBar` | Píldora con gradiente, iconos outline blancos, **círculo blanco que se desliza con spring** a la pestaña activa y **FAB diamante** central para agregar. |
-| `FilterPills` | Pills estilo "All / New Car / Used Car": activa con gradiente, inactivas con borde de acento. |
+| `NotchCard` | Tarjeta con "mordida" cóncava arriba a la derecha dibujada en SVG, donde vive un círculo negro (días restantes, editar). Patrón de la referencia del corazón. |
+| `FloatingTabBar` | Píldora negra (blanca en oscuro), iconos outline invertidos, **círculo que se desliza con spring** a la pestaña activa y **FAB diamante** con contorno para agregar. |
+| `FilterPills` | Pills estilo "All / New Car / Used Car": activa rellena en negro, inactivas con contorno. |
 | `AreaChart` | Curva suave (Catmull-Rom → Bézier) con relleno degradado y punto resaltado. |
 | `Gauge` | Arco de 270° con perilla, para porcentajes (presupuesto, progreso del ciclo). |
 | `Donut` | Dona por categorías con separación entre segmentos. |
@@ -331,10 +349,10 @@ Inspirado en las referencias compartidas (fintech "soft": fondo claro, tarjetas 
 
 1. **Lo urgente primero:** Inicio abre con el gasto del mes, el próximo cobro destacado (con cuenta regresiva) y el carrusel de los próximos 14 días.
 2. **Una acción principal siempre a la mano:** FAB central en todas las pestañas.
-3. **Estados claros:** rojo solo para cobros ≤ 3 días o presupuesto excedido; verde para "día libre de cobros".
+3. **El color significa algo:** todo es blanco/negro/gris; el rojo aparece únicamente para cobros ≤ 3 días o presupuesto excedido.
 4. **Números legibles:** cifras grandes, centavos pequeños, formato `es-MX`.
 5. **Buscar y filtrar donde está la lista:** búsqueda + pills Todas/Mensuales/Anuales en Inicio.
-6. **Modo oscuro nativo** con tokens propios (no un simple invert).
+6. **Modo oscuro** con la paleta invertida y grises propios para superficies y separadores.
 7. **Accesibilidad:** roles y labels en botones y tabs; targets ≥ 44 pt.
 
 ### 6.4 Tab bar nativa (opcional)
@@ -348,11 +366,11 @@ Inspirado en las referencias compartidas (fintech "soft": fondo claro, tarjetas 
 | Pantalla | Qué hace |
 |---|---|
 | **Login** | Google, Apple (iOS) y email/contraseña (registro, login, recuperar contraseña). Errores de Firebase traducidos. |
-| **Inicio** | Saludo, búsqueda, héroe con gasto mensual, % del presupuesto (editable) y **gráfica de cobros reales de los próximos 6 meses**; próximo cobro en `NotchCard`; carrusel de próximos 14 días; lista filtrable; banner al catálogo. |
+| **Inicio** | Saludo, búsqueda, tarjeta negra con gasto mensual y barra de presupuesto (editable), 3 cifras (cobros reales de esta semana, este mes y al año), próximo cobro en `NotchCard`, carrusel de próximos 14 días, lista filtrable y acceso al catálogo. |
 | **Calendario** | Vista semana o mes (lunes primero), puntos de color por cobro, total del mes, botón "Hoy", cobros del día seleccionado y resto del mes. Respeta recurrencia y fin de mes. |
 | **FAB (+)** | Abre el alta: primero el catálogo (buscar, filtrar por categoría, elegir plan) o "Personalizada". |
 | **Alta / edición** | Vista previa en vivo, precio grande en MXN, ciclo (muestra el equivalente mensual si es anual), fecha, categoría, color, recordatorio, método de pago, tarjeta/CLABE y notas. Al editar, reprograma la notificación. |
-| **Detalle** | Tarjeta con muesca (botón editar), gauges de "siguiente cobro" y "% de tu gasto", costo anual, **pagado aproximado desde que la agregaste**, detalles, tarjeta vinculada (copiar CLABE) y eliminar. |
+| **Detalle** | Tarjeta con muesca (botón editar), barra de progreso al siguiente cobro, cifras al mes / al año / % de tu gasto, **pagado aproximado desde que la agregaste**, detalles, tarjeta vinculada (copiar CLABE) y eliminar. |
 | **Estadísticas** | Gasto anual con gráfica de 12 meses y mes más caro, gauges de presupuesto y mensuales vs anuales, dona por categoría, top 5 más caras, tips de ahorro (plan anual, duplicados por categoría, presupuesto excedido) y gasto por método de pago. |
 | **Perfil** | Usuario y proveedor de login, stats, tarjetas/CLABE (agregar, ordenar, eliminar, copiar), ajustes (estado **real** del permiso de notificaciones con acceso a Ajustes, presupuesto, moneda, apariencia) y cerrar sesión. |
 | **Explorar catálogo** | Misma experiencia del paso 1 del alta, accesible desde Inicio. |
@@ -363,8 +381,9 @@ Inspirado en las referencias compartidas (fintech "soft": fondo claro, tarjetas 
 
 **Diseño**
 - Nuevo design system (`src/theme/tokens.ts` + `src/components/ui/`) y rediseño de **todas** las pantallas.
-- Tab bar flotante con gradiente, indicador animado y FAB central; "Explorar" pasa de pestaña a pantalla (`/catalog`) para dejar 4 pestañas + acción principal.
-- `NotchCard`, gráficas de área, gauges y dona nuevos en SVG.
+- Tab bar flotante, indicador animado y FAB central; "Explorar" pasa de pestaña a pantalla (`/catalog`) para dejar 4 pestañas + acción principal.
+- Paleta **blanco y negro** con modo oscuro invertido; rojo solo para urgencias.
+- `NotchCard`, gráfica de área, medidores y dona nuevos en SVG, usados sólo en Estadísticas.
 
 **Bugs corregidos**
 - **Fechas vencidas:** suscripciones con fecha ancla pasada mostraban "Hoy" para siempre y desaparecían de "Próximos pagos". Ahora se calcula la próxima fecha real (`nextRenewalDate`).

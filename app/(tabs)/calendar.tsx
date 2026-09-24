@@ -35,14 +35,14 @@ function DayCell({
   const { colors } = useTheme();
   const size = compact ? 38 : 42;
   const num = (
-    <Text style={[s.dayNum, { color: selected ? '#fff' : colors.text }, (selected || today) && { fontWeight: '900' }]}>
+    <Text style={[s.dayNum, { color: selected ? colors.onInk : colors.text }, (selected || today) && { fontWeight: '900' }]}>
       {date.getDate()}
     </Text>
   );
   return (
     <Pressable onPress={onPress} style={s.dayCell} accessibilityRole="button" accessibilityState={{ selected }}>
       {!compact && (
-        <Text style={[s.dayName, { color: selected ? colors.accent : colors.subtext }]}>{DAYS_SHORT[date.getDay()]}</Text>
+        <Text style={[s.dayName, { color: selected ? colors.text : colors.subtext }]}>{DAYS_SHORT[date.getDay()]}</Text>
       )}
       {selected ? (
         <LinearGradient colors={colors.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[s.dayCircle, { width: size, height: size, borderRadius: size / 2 }]}>
@@ -166,7 +166,7 @@ export default function CalendarScreen() {
             </Pressable>
             <View style={{ alignItems: 'center' }}>
               <Text style={[type.h2, { color: colors.text }]}>{MONTHS[month]} {year}</Text>
-              <Text style={[s.monthTotal, { color: colors.accent }]}>{moneyShort(monthTotal)} este mes</Text>
+              <Text style={[s.monthTotal, { color: colors.subtext }]}>{moneyShort(monthTotal)} este mes</Text>
             </View>
             <Pressable onPress={() => shift(1)} style={[s.nav, { backgroundColor: colors.bg }]} accessibilityLabel="Siguiente">
               <Ionicons name="chevron-forward" size={18} color={colors.text} />
@@ -214,9 +214,9 @@ export default function CalendarScreen() {
         <View style={s.dayHeader}>
           <Text style={[type.h2, { color: colors.text, flex: 1 }]} numberOfLines={1}>{selectedLabel}</Text>
           {selectedSubs.length > 0 && (
-            <LinearGradient colors={colors.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.totalPill}>
-              <Text style={s.totalText}>{money(selectedTotal)}</Text>
-            </LinearGradient>
+            <View style={[s.totalPill, { backgroundColor: colors.ink }]}>
+              <Text style={[s.totalText, { color: colors.onInk }]}>{money(selectedTotal)}</Text>
+            </View>
           )}
         </View>
 
@@ -225,7 +225,7 @@ export default function CalendarScreen() {
             <SubscriptionRow key={sub.id} sub={sub} onPress={() => router.push(`/subscription/${sub.id}`)} />
           ))
         ) : (
-          <View style={[s.free, { backgroundColor: colors.successSoft }]}>
+          <View style={[s.free, { backgroundColor: colors.surface }]}>
             <Ionicons name="checkmark-circle" size={26} color={colors.success} />
             <Text style={[s.freeText, { color: colors.success }]}>Día libre de cobros</Text>
           </View>
@@ -270,7 +270,7 @@ const s = StyleSheet.create({
 
   dayHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: spacing.screen, marginTop: 26, marginBottom: 8 },
   totalPill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.pill },
-  totalText: { color: '#fff', fontSize: 13, fontWeight: '900' },
+  totalText: { fontSize: 13, fontWeight: '900' },
 
   free: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: spacing.screen, marginTop: 6, borderRadius: radius.md, padding: 16 },
   freeText: { fontSize: 15, fontWeight: '800' },

@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../hooks/useTheme';
 import { SubIcon } from '../../utils/brandIcons';
-import { CATEGORY_COLORS, CATEGORY_LABELS, type Subscription } from '../../types';
+import { CATEGORY_LABELS, type Subscription } from '../../types';
 import { daysUntilRenewal, nextRenewalDate, relativeDayLabel, shortDate } from '../../utils/dates';
 import { money, moneyParts } from '../../utils/format';
 import { radius, spacing, type } from '../../theme/tokens';
@@ -50,7 +50,7 @@ export function UpcomingTile({ sub, onPress }: { sub: Subscription; onPress: () 
   const { colors } = useTheme();
   const days = daysUntilRenewal(sub);
   const urgent = days <= 3;
-  const tint = urgent ? colors.urgent : colors.accent;
+  const tint = urgent ? colors.urgent : colors.ink;
   return (
     <PressableScale onPress={onPress} style={[r.tile, { backgroundColor: colors.surface }]} accessibilityRole="button">
       <View style={r.tileTop}>
@@ -79,7 +79,6 @@ export function FeaturedSubscriptionCard({
   const { colors } = useTheme();
   const days = daysUntilRenewal(sub);
   const { int, dec } = moneyParts(sub.price);
-  const catColor = CATEGORY_COLORS[sub.category];
 
   return (
     <PressableScale onPress={onPress} scaleTo={0.985} accessibilityRole="button" accessibilityLabel={`${label}: ${sub.name}`}>
@@ -89,13 +88,13 @@ export function FeaturedSubscriptionCard({
         style={r.featured}
         badge={
           <GradientCircle size={66}>
-            <Text style={r.badgeNum}>{Math.max(days, 0)}</Text>
-            <Text style={r.badgeUnit}>{days === 1 ? 'día' : 'días'}</Text>
+            <Text style={[r.badgeNum, { color: colors.onInk }]}>{Math.max(days, 0)}</Text>
+            <Text style={[r.badgeUnit, { color: colors.onInk }]}>{days === 1 ? 'día' : 'días'}</Text>
           </GradientCircle>
         }
       >
         <View style={{ paddingRight: 86 }}>
-          <Tag label={label} color={days <= 3 ? colors.urgent : colors.success} solid />
+          <Tag label={label} color={days <= 3 ? colors.urgent : undefined} solid />
           <Text style={[r.featuredName, { color: colors.text }]} numberOfLines={2}>{sub.name}</Text>
         </View>
         <Text style={[r.featuredDesc, { color: colors.text }]} numberOfLines={2}>
@@ -105,7 +104,7 @@ export function FeaturedSubscriptionCard({
           <Text style={[r.featuredPrice, { color: colors.text }]}>
             {int}<Text style={r.featuredDec}>.{dec}</Text>
           </Text>
-          <View style={[r.bigLogo, { backgroundColor: catColor + '14' }]}>
+          <View style={[r.bigLogo, { backgroundColor: colors.bg }]}>
             <SubIcon name={sub.name} color={sub.color} size={84} borderRadius={42} />
           </View>
         </View>
@@ -131,8 +130,8 @@ const r = StyleSheet.create({
   tileDays: { fontSize: 12, fontWeight: '800' },
 
   featured: { marginHorizontal: spacing.screen, padding: 22, paddingBottom: 18 },
-  badgeNum: { color: '#fff', fontSize: 22, fontWeight: '900', lineHeight: 24 },
-  badgeUnit: { color: 'rgba(255,255,255,0.9)', fontSize: 10, fontWeight: '800', marginTop: -2 },
+  badgeNum: { fontSize: 22, fontWeight: '900', lineHeight: 24 },
+  badgeUnit: { opacity: 0.85, fontSize: 10, fontWeight: '800', marginTop: -2 },
   featuredName: { fontSize: 34, fontWeight: '900', letterSpacing: -1, marginTop: 14, lineHeight: 38 },
   featuredDesc: { fontSize: 14, fontWeight: '700', lineHeight: 20, marginTop: 12, maxWidth: '78%' },
   featuredBottom: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 14 },
