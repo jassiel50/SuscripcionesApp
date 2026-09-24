@@ -149,28 +149,43 @@ export const STACK_BTN = 40;
  * se ve completo hasta arriba.
  */
 export function StackHeader({
-  title, onBack, right,
+  title, onBack, right, scrollY,
 }: {
   title?: string;
   /** Si se omite, no se muestra botón de regreso (p. ej. dentro de un flujo interno). */
   onBack?: () => void;
   right?: React.ReactNode;
+  /**
+   * Scroll de la pantalla: si se pasa, el fondo de vidrio y el título aparecen
+   * con fade al hacer scroll (como TopBar), dejando ver el degradado completo
+   * hasta arriba cuando la pantalla está en reposo. Si se omite, se muestran
+   * siempre (p. ej. pantallas sin scroll propio).
+   */
+  scrollY?: SharedValue<number>;
 }) {
   const insets = useSafeAreaInsets();
   const { colors, dark } = useTheme();
   const barHeight = insets.top + 10 + STACK_BTN + 12;
+
+  const bgStyle = useAnimatedStyle(() => ({
+    opacity: scrollY ? interpolate(scrollY.value, [0, 50], [0, 1], Extrapolation.CLAMP) : 1,
+  }));
+  const titleStyle = useAnimatedStyle(() => ({
+    opacity: scrollY ? interpolate(scrollY.value, [20, 60], [0, 1], Extrapolation.CLAMP) : 1,
+  }));
+
   return (
     <View style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, height: barHeight }} pointerEvents="box-none">
-      {/* Fondo de vidrio fijo: sin esto el título/botón quedan flotando sobre el
-          contenido cuando se hace scroll, en vez de verse claramente por encima. */}
-      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      {/* Fondo de vidrio: transparente en reposo (se ve el degradado completo),
+          aparece con fade al hacer scroll para separar el título del contenido. */}
+      <Animated.View style={[StyleSheet.absoluteFill, bgStyle]} pointerEvents="none">
         <BlurView intensity={dark ? 45 : 60} tint={dark ? 'systemChromeMaterialDark' : 'systemChromeMaterialLight'} blurMethod="dimezisBlurViewSdk31Plus" style={StyleSheet.absoluteFill} />
         <LinearGradient
           colors={dark ? ['rgba(5,5,12,0.4)', 'rgba(5,5,12,0)'] : ['rgba(255,255,255,0.48)', 'rgba(255,255,255,0)']}
           locations={[0.6, 1]}
           style={StyleSheet.absoluteFill}
         />
-      </View>
+      </Animated.View>
       <View style={[sh.row, { paddingTop: insets.top + 10 }]} pointerEvents="box-none">
         {onBack ? (
           <PressableScale onPress={() => { tapHaptic(); onBack(); }} scaleTo={0.88} accessibilityRole="button" accessibilityLabel="Regresar">
@@ -180,7 +195,7 @@ export function StackHeader({
           </PressableScale>
         ) : <View style={sh.btn} />}
         {title ? (
-          <Text style={[type.h3, { color: colors.text, flex: 1, textAlign: 'center' }]} numberOfLines={1}>{title}</Text>
+          <Animated.Text style={[type.h3, { color: colors.text, flex: 1, textAlign: 'center' }, titleStyle]} numberOfLines={1}>{title}</Animated.Text>
         ) : <View style={{ flex: 1 }} />}
         {right ?? <View style={sh.btn} />}
       </View>

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Dimensions, FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../hooks/useTheme';
@@ -9,7 +9,7 @@ import { radius, spacing, type } from '../theme/tokens';
 import { FilterPills, PressableScale, SearchField, Tag } from './ui/primitives';
 import { ScreenBackground } from './ui/glass';
 import { useStackHeaderSpace } from './ui/chrome';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, useAnimatedScrollHandler, type SharedValue } from 'react-native-reanimated';
 import {
   ALL_CATEGORIES, PREDEFINED_SUBSCRIPTIONS,
   type Plan, type PredefinedSubscription, type ServiceCategory,
@@ -25,11 +25,13 @@ const CARD_W = (Dimensions.get('window').width - spacing.screen * 2 - 12) / 2;
  *  - /subscription/new (paso 1 del alta)
  */
 export default function CatalogBrowser({
-  onSelectPlan, header, bottomInset = 24,
+  onSelectPlan, header, bottomInset = 24, scrollY,
 }: {
   onSelectPlan: (sub: PredefinedSubscription, plan: Plan) => void;
   header?: React.ReactElement;
   bottomInset?: number;
+  /** Se reporta al padre para que el `StackHeader` haga fade al hacer scroll. */
+  scrollY?: SharedValue<number>;
 }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -37,6 +39,9 @@ export default function CatalogBrowser({
   const [query, setQuery] = useState('');
   const [cat, setCat] = useState<Cat>('Todos');
   const [selected, setSelected] = useState<PredefinedSubscription | null>(null);
+  const onScroll = useAnimatedScrollHandler({
+    onScroll: e => { if (scrollY) scrollY.value = e.contentOffset.y; },
+  });
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -53,14 +58,16 @@ export default function CatalogBrowser({
   return (
     <View style={{ flex: 1 }}>
       <ScreenBackground scene="neutral" />
-      <FlatList
+      <Animated.FlatList
         data={filtered}
-        keyExtractor={i => i.id}
+        keyExtractor={(i: PredefinedSubscription) => i.id}
         numColumns={2}
         keyboardShouldPersistTaps="handled"
         columnWrapperStyle={s.gridRow}
         contentContainerStyle={{ paddingTop: headerSpace + 8, paddingBottom: bottomInset }}
         showsVerticalScrollIndicator={false}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
         ListHeaderComponent={
           <View style={{ gap: 14, marginBottom: 16 }}>
             {header}

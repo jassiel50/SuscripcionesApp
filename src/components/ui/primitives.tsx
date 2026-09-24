@@ -261,7 +261,7 @@ export function SearchField(props: TextInputProps & { onClear?: () => void; comp
   const { onClear, value, style, compact, ...rest } = props;
   return (
     <Glass radius={compact ? 22 : radius.md} style={compact ? { flex: 1 } : { marginHorizontal: spacing.screen }}>
-      <View style={[p.search, compact && { height: 48, paddingHorizontal: 14 }]}>
+      <View style={[p.search, compact && { minHeight: 50, paddingHorizontal: 14, paddingVertical: 10 }]}>
         <Ionicons name="search" size={18} color={colors.subtext} />
         <TextInput
           {...rest}
@@ -332,7 +332,7 @@ const p = StyleSheet.create({
   tag: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.xs },
   tagText: { fontSize: 12, fontWeight: '700', letterSpacing: 0.1 },
 
-  search: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, height: 50 },
+  search: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, minHeight: 50, paddingVertical: 12 },
   searchInput: { flex: 1, fontSize: 16, lineHeight: 20, fontWeight: '500', paddingVertical: 0 },
 
   empty: { alignItems: 'center', paddingHorizontal: 36, paddingVertical: 32, gap: 12 },
