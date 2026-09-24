@@ -1,5 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { Dimensions, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Dimensions, FlatList, Modal, NativeScrollEvent, NativeSyntheticEvent, Pressable, ScrollView, StyleSheet, Text, View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../hooks/useTheme';
@@ -9,7 +11,7 @@ import { radius, spacing, type } from '../theme/tokens';
 import { FilterPills, PressableScale, SearchField, Tag } from './ui/primitives';
 import { ScreenBackground } from './ui/glass';
 import { useStackHeaderSpace } from './ui/chrome';
-import Animated, { FadeInDown, useAnimatedScrollHandler, type SharedValue } from 'react-native-reanimated';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import {
   ALL_CATEGORIES, PREDEFINED_SUBSCRIPTIONS,
   type Plan, type PredefinedSubscription, type ServiceCategory,
@@ -25,13 +27,13 @@ const CARD_W = (Dimensions.get('window').width - spacing.screen * 2 - 12) / 2;
  *  - /subscription/new (paso 1 del alta)
  */
 export default function CatalogBrowser({
-  onSelectPlan, header, bottomInset = 24, scrollY,
+  onSelectPlan, header, bottomInset = 24, onScroll,
 }: {
   onSelectPlan: (sub: PredefinedSubscription, plan: Plan) => void;
   header?: React.ReactElement;
   bottomInset?: number;
   /** Se reporta al padre para que el `StackHeader` haga fade al hacer scroll. */
-  scrollY?: SharedValue<number>;
+  onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
 }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -39,9 +41,6 @@ export default function CatalogBrowser({
   const [query, setQuery] = useState('');
   const [cat, setCat] = useState<Cat>('Todos');
   const [selected, setSelected] = useState<PredefinedSubscription | null>(null);
-  const onScroll = useAnimatedScrollHandler({
-    onScroll: e => { if (scrollY) scrollY.value = e.contentOffset.y; },
-  });
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -58,7 +57,7 @@ export default function CatalogBrowser({
   return (
     <View style={{ flex: 1 }}>
       <ScreenBackground scene="neutral" />
-      <Animated.FlatList
+      <FlatList
         data={filtered}
         keyExtractor={(i: PredefinedSubscription) => i.id}
         numColumns={2}

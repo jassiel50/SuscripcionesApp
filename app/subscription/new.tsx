@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch,
+  Alert, KeyboardAvoidingView, NativeScrollEvent, NativeSyntheticEvent, Platform, Pressable, ScrollView, StyleSheet, Switch,
   Text, TextInput, View,
 } from 'react-native';
-import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -50,8 +49,11 @@ export default function NewSubscriptionScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const headerSpace = useStackHeaderSpace();
-  const scrollY = useSharedValue(0);
-  const onScroll = useAnimatedScrollHandler({ onScroll: e => { scrollY.value = e.contentOffset.y; } });
+  const [scrolled, setScrolled] = useState(false);
+  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const past = e.nativeEvent.contentOffset.y > 24;
+    setScrolled(prev => (prev === past ? prev : past));
+  };
   const { id, catalogId, planPrice: planPriceParam, planPeriod, custom } = useLocalSearchParams<{
     id?: string; catalogId?: string; planName?: string; planPrice?: string; planPeriod?: string; custom?: string;
   }>();
@@ -167,7 +169,7 @@ export default function NewSubscriptionScreen() {
       <View style={{ flex: 1 }}>
         <CatalogBrowser
           bottomInset={insets.bottom + 24}
-          scrollY={scrollY}
+          onScroll={onScroll}
           header={
             <PressableScale onPress={() => { setInitialized(true); setMode('form'); }} style={s.customWrap}>
               <LinearGradient colors={colors.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.custom}>
@@ -190,7 +192,7 @@ export default function NewSubscriptionScreen() {
             setMode('form');
           }}
         />
-        <StackHeader title="Nueva suscripción" onBack={() => router.back()} scrollY={scrollY} titleFade={false} />
+        <StackHeader title="Nueva suscripción" onBack={() => router.back()} scrolled={scrolled} titleFade={false} />
       </View>
     );
   }
@@ -201,9 +203,9 @@ export default function NewSubscriptionScreen() {
   return (
     <View style={{ flex: 1 }}>
       <ScreenBackground scene="neutral" tint={color} />
-      <StackHeader title={isEdit ? 'Editar suscripción' : 'Nueva suscripción'} onBack={() => router.back()} scrollY={scrollY} titleFade={false} />
+      <StackHeader title={isEdit ? 'Editar suscripción' : 'Nueva suscripción'} onBack={() => router.back()} scrolled={scrolled} titleFade={false} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Animated.ScrollView
+        <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{ paddingTop: headerSpace, paddingBottom: insets.bottom + 32 }}
           keyboardShouldPersistTaps="handled"
@@ -401,7 +403,7 @@ export default function NewSubscriptionScreen() {
             tint={color}
             style={{ marginHorizontal: spacing.screen, marginTop: 32 }}
           />
-        </Animated.ScrollView>
+        </ScrollView>
       </KeyboardAvoidingView>
     </View>
   );

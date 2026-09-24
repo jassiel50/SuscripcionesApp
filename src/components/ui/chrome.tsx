@@ -1,5 +1,5 @@
-import React, { createContext, useContext } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { createContext, useContext, useEffect, useRef } from 'react';
+import { Animated as RNAnimated, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -154,20 +154,22 @@ export const STACK_BTN = 40;
  * se ve completo hasta arriba.
  */
 export function StackHeader({
-  title, onBack, right, scrollY, titleFade = true,
+  title, onBack, right, scrolled = false, titleFade = true,
 }: {
   title?: string;
   /** Si se omite, no se muestra botón de regreso (p. ej. dentro de un flujo interno). */
   onBack?: () => void;
   right?: React.ReactNode;
   /**
-   * Scroll de la pantalla: si se pasa, el fondo de vidrio aparece con fade al
-   * hacer scroll (como TopBar), dejando ver el degradado completo hasta
-   * arriba cuando la pantalla está en reposo. Si se omite, el fondo nunca se
-   * muestra (p. ej. Detalle, donde no hace falta separar el título del
-   * contenido porque no hay título).
+   * `true` una vez que la pantalla se deslizó más allá de un pequeño umbral:
+   * hace aparecer el fondo de vidrio (como TopBar), dejando ver el degradado
+   * completo cuando la pantalla está en reposo. Se controla con un booleano
+   * simple (no con el valor de scroll de Reanimated) porque dentro de un
+   * `KeyboardAvoidingView` el scroll-handler de Reanimated no siempre se
+   * dispara. Si se omite, el fondo nunca se muestra (p. ej. Detalle, que no
+   * tiene título que separar del contenido).
    */
-  scrollY?: SharedValue<number>;
+  scrolled?: boolean;
   /** Si es `false`, el título siempre se ve (solo el fondo de vidrio hace fade). */
   titleFade?: boolean;
 }) {
@@ -175,12 +177,11 @@ export function StackHeader({
   const { colors, dark } = useTheme();
   const barHeight = insets.top + 10 + STACK_BTN + 12;
 
-  const bgStyle = useAnimatedStyle(() => ({
-    opacity: scrollY ? interpolate(scrollY.value, [0, 50], [0, 1], Extrapolation.CLAMP) : 0,
-  }));
-  const titleStyle = useAnimatedStyle(() => ({
-    opacity: scrollY && titleFade ? interpolate(scrollY.value, [20, 60], [0, 1], Extrapolation.CLAMP) : 1,
-  }));
+  const bgOpacity = useRef(new RNAnimated.Value(0)).current;
+  useEffect(() => {
+    RNAnimated.timing(bgOpacity, { toValue: scrolled ? 1 : 0, duration: 220, useNativeDriver: true }).start();
+  }, [scrolled, bgOpacity]);
+  const titleOpacity = titleFade ? bgOpacity : 1;
 
   return (
     <View style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, height: barHeight }} pointerEvents="box-none">
@@ -188,7 +189,7 @@ export function StackHeader({
           aparece con fade al hacer scroll para separar el título del contenido.
           El blur cubre solo la parte de arriba y el tinte se desvanece en 3
           pasos para que el borde inferior no se note (nada de línea marcada). */}
-      <Animated.View style={[StyleSheet.absoluteFill, bgStyle]} pointerEvents="none">
+      <RNAnimated.View style={[StyleSheet.absoluteFill, { opacity: bgOpacity }]} pointerEvents="none">
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: barHeight * 0.6 }}>
           <BlurView intensity={dark ? 42 : 34} tint={dark ? 'systemChromeMaterialDark' : 'systemChromeMaterialLight'} blurMethod="dimezisBlurViewSdk31Plus" style={StyleSheet.absoluteFill} />
         </View>
@@ -199,7 +200,7 @@ export function StackHeader({
           locations={[0.32, 0.7, 1]}
           style={StyleSheet.absoluteFill}
         />
-      </Animated.View>
+      </RNAnimated.View>
       <View style={[sh.row, { paddingTop: insets.top + 10 }]} pointerEvents="box-none">
         {onBack ? (
           <PressableScale onPress={() => { tapHaptic(); onBack(); }} scaleTo={0.88} accessibilityRole="button" accessibilityLabel="Regresar">
@@ -209,7 +210,7 @@ export function StackHeader({
           </PressableScale>
         ) : <View style={sh.btn} />}
         {title ? (
-          <Animated.Text style={[type.h3, { color: colors.text, flex: 1, textAlign: 'center' }, titleStyle]} numberOfLines={1}>{title}</Animated.Text>
+          <RNAnimated.Text style={[type.h3, { color: colors.text, flex: 1, textAlign: 'center', opacity: titleOpacity }]} numberOfLines={1}>{title}</RNAnimated.Text>
         ) : <View style={{ flex: 1 }} />}
         {right ?? <View style={sh.btn} />}
       </View>
