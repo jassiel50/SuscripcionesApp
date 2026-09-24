@@ -157,20 +157,33 @@ export function StackHeader({
   right?: React.ReactNode;
 }) {
   const insets = useSafeAreaInsets();
-  const { colors } = useTheme();
+  const { colors, dark } = useTheme();
+  const barHeight = insets.top + 10 + STACK_BTN + 12;
   return (
-    <View style={[sh.row, { paddingTop: insets.top + 10 }]} pointerEvents="box-none">
-      {onBack ? (
-        <PressableScale onPress={() => { tapHaptic(); onBack(); }} scaleTo={0.88} accessibilityRole="button" accessibilityLabel="Regresar">
-          <Glass radius={STACK_BTN / 2} interactive>
-            <View style={sh.btn}><Ionicons name="chevron-back" size={20} color={colors.text} /></View>
-          </Glass>
-        </PressableScale>
-      ) : <View style={sh.btn} />}
-      {title ? (
-        <Text style={[type.h3, { color: colors.text, flex: 1, textAlign: 'center' }]} numberOfLines={1}>{title}</Text>
-      ) : <View style={{ flex: 1 }} />}
-      {right ?? <View style={sh.btn} />}
+    <View style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, height: barHeight }} pointerEvents="box-none">
+      {/* Fondo de vidrio fijo: sin esto el título/botón quedan flotando sobre el
+          contenido cuando se hace scroll, en vez de verse claramente por encima. */}
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <BlurView intensity={dark ? 45 : 60} tint={dark ? 'systemChromeMaterialDark' : 'systemChromeMaterialLight'} blurMethod="dimezisBlurViewSdk31Plus" style={StyleSheet.absoluteFill} />
+        <LinearGradient
+          colors={dark ? ['rgba(5,5,12,0.4)', 'rgba(5,5,12,0)'] : ['rgba(255,255,255,0.48)', 'rgba(255,255,255,0)']}
+          locations={[0.6, 1]}
+          style={StyleSheet.absoluteFill}
+        />
+      </View>
+      <View style={[sh.row, { paddingTop: insets.top + 10 }]} pointerEvents="box-none">
+        {onBack ? (
+          <PressableScale onPress={() => { tapHaptic(); onBack(); }} scaleTo={0.88} accessibilityRole="button" accessibilityLabel="Regresar">
+            <Glass radius={STACK_BTN / 2} interactive>
+              <View style={sh.btn}><Ionicons name="chevron-back" size={20} color={colors.text} /></View>
+            </Glass>
+          </PressableScale>
+        ) : <View style={sh.btn} />}
+        {title ? (
+          <Text style={[type.h3, { color: colors.text, flex: 1, textAlign: 'center' }]} numberOfLines={1}>{title}</Text>
+        ) : <View style={{ flex: 1 }} />}
+        {right ?? <View style={sh.btn} />}
+      </View>
     </View>
   );
 }
@@ -183,7 +196,6 @@ export function useStackHeaderSpace(): number {
 
 const sh = StyleSheet.create({
   row: {
-    position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10,
     flexDirection: 'row', alignItems: 'center', gap: 10,
     paddingHorizontal: spacing.screen - 4, paddingBottom: 12,
   },

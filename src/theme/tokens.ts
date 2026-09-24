@@ -216,6 +216,19 @@ export const identityIcons = [
   'home-outline', 'car-outline', 'restaurant-outline', 'ellipsis-horizontal-outline',
 ] as const;
 
+/**
+ * Degradado de 2 tonos a partir de un color de marca/identidad (aclarando el
+ * segundo stop), para que botones y pills "combinen" con el color elegido de
+ * una suscripción en vez de usar siempre el gradiente genérico de la app.
+ */
+export function tintGradient(hex: string): readonly [string, string] {
+  if (!/^#[0-9a-f]{6}$/i.test(hex)) return [hex, hex];
+  const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+  const lighten = (c: number) => Math.round(c + (255 - c) * 0.4);
+  const hex2 = `#${[lighten(r), lighten(g), lighten(b)].map(v => v.toString(16).padStart(2, '0')).join('')}`;
+  return [hex, hex2];
+}
+
 /** Sombra suave "flotante" (tab bar, FAB, botones). */
 export function floatShadow(color: string, strength = 1) {
   return {

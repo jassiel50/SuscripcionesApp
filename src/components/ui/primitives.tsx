@@ -10,7 +10,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../hooks/useTheme';
-import { floatShadow, radius, spacing, type } from '../../theme/tokens';
+import { floatShadow, radius, spacing, tintGradient, type } from '../../theme/tokens';
 import { nativeTabsActive } from '../../config/ui';
 import { spring, tapHaptic } from '../../theme/motion';
 import { Glass } from './glass';
@@ -119,17 +119,19 @@ export function GradientCircle({
 }
 
 export function GradientButton({
-  label, icon, onPress, disabled, style, alt,
+  label, icon, onPress, disabled, style, alt, tint,
 }: {
   label: string; icon?: IoniconName; onPress: () => void; disabled?: boolean;
   style?: StyleProp<ViewStyle>; alt?: boolean;
+  /** Color de una suscripción: si se pasa, el botón combina con ese color en vez del gradiente genérico. */
+  tint?: string;
 }) {
   const { colors } = useTheme();
   return (
     <View style={style}>
     <PressableScale onPress={onPress} disabled={disabled} style={{ opacity: disabled ? 0.55 : 1 }} accessibilityRole="button">
       <LinearGradient
-        colors={alt ? colors.gradientAlt : colors.gradient}
+        colors={tint ? tintGradient(tint) : alt ? colors.gradientAlt : colors.gradient}
         start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
         style={[p.gradBtn, floatShadow(colors.shadow, 0.35)]}
       >
@@ -144,12 +146,14 @@ export function GradientButton({
 // ── Pills de filtro (estilo "All / New Car / Used Car") ─────────────────────
 
 export function FilterPills<T extends string>({
-  options, value, onChange, scroll = true,
+  options, value, onChange, scroll = true, tint,
 }: {
   options: { key: T; label: string; count?: number }[];
   value: T;
   onChange: (key: T) => void;
   scroll?: boolean;
+  /** Color de una suscripción: si se pasa, la pill activa combina con ese color en vez del gradiente genérico. */
+  tint?: string;
 }) {
   const { colors } = useTheme();
   const content = options.map(opt => {
@@ -158,7 +162,7 @@ export function FilterPills<T extends string>({
     return (
       <PressableScale key={opt.key} onPress={() => onChange(opt.key)} scaleTo={0.94} accessibilityRole="tab" accessibilityState={{ selected: active }}>
         {active ? (
-          <LinearGradient colors={colors.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[p.pill, p.pillActive]}>
+          <LinearGradient colors={tint ? tintGradient(tint) : colors.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[p.pill, p.pillActive]}>
             <Text style={[p.pillText, { color: colors.onInk }]}>{label}</Text>
           </LinearGradient>
         ) : (
@@ -257,7 +261,7 @@ export function SearchField(props: TextInputProps & { onClear?: () => void; comp
   const { onClear, value, style, compact, ...rest } = props;
   return (
     <Glass radius={compact ? 22 : radius.md} style={compact ? { flex: 1 } : { marginHorizontal: spacing.screen }}>
-      <View style={[p.search, compact && { height: 44, paddingHorizontal: 14 }]}>
+      <View style={[p.search, compact && { height: 48, paddingHorizontal: 14 }]}>
         <Ionicons name="search" size={18} color={colors.subtext} />
         <TextInput
           {...rest}
@@ -329,7 +333,7 @@ const p = StyleSheet.create({
   tagText: { fontSize: 12, fontWeight: '700', letterSpacing: 0.1 },
 
   search: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, height: 50 },
-  searchInput: { flex: 1, fontSize: 16, fontWeight: '500', paddingVertical: 0 },
+  searchInput: { flex: 1, fontSize: 16, lineHeight: 20, fontWeight: '500', paddingVertical: 0 },
 
   empty: { alignItems: 'center', paddingHorizontal: 36, paddingVertical: 32, gap: 12 },
   emptyIcon: { width: 84, height: 84, borderRadius: 42, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },

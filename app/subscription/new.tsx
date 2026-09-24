@@ -22,7 +22,7 @@ import { SubIcon } from '../../src/utils/brandIcons';
 import { longDate, parseDate, toDateStr } from '../../src/utils/dates';
 import { money } from '../../src/utils/format';
 import { mapCategory, planPrice } from '../../src/utils/catalog';
-import { identityColors, identityIcons, radius, spacing, type } from '../../src/theme/tokens';
+import { identityColors, identityIcons, radius, spacing, tintGradient, type } from '../../src/theme/tokens';
 import {
   CATEGORY_LABELS, type BillingCycle, type Category, type PaymentCard, type PaymentMethod,
 } from '../../src/types';
@@ -251,6 +251,7 @@ export default function NewSubscriptionScreen() {
               scroll={false}
               value={billing}
               onChange={setBilling}
+              tint={color}
               options={[{ key: 'monthly', label: 'Mensual' }, { key: 'yearly', label: 'Anual' }]}
             />
           </View>
@@ -286,6 +287,7 @@ export default function NewSubscriptionScreen() {
           <FilterPills<Category>
             value={category}
             onChange={setCategory}
+            tint={color}
             options={CATEGORIES.map(([key, label]) => ({ key, label }))}
           />
 
@@ -338,7 +340,7 @@ export default function NewSubscriptionScreen() {
               return (
                 <PressableScale key={pm.key} onPress={() => setPaymentMethod(pm.key)} style={s.pmCell}>
                   {active ? (
-                    <LinearGradient colors={colors.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.pm}>
+                    <LinearGradient colors={tintGradient(color)} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.pm}>
                       <Ionicons name={pm.icon} size={18} color={colors.onInk} />
                       <Text style={[s.pmLabel, { color: colors.onInk }]} numberOfLines={2}>{pm.label}</Text>
                     </LinearGradient>
@@ -390,6 +392,7 @@ export default function NewSubscriptionScreen() {
             icon={isEdit ? 'checkmark-circle' : 'add-circle'}
             onPress={handleSave}
             disabled={saving}
+            tint={color}
             style={{ marginHorizontal: spacing.screen, marginTop: 32 }}
           />
         </ScrollView>

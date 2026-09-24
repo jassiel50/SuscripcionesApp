@@ -100,10 +100,14 @@ export function SubIcon({ name, subId, color, icon: iconName, size = 36, borderR
 
   if (icon) {
     const lum = luminance(icon.hex);
-    const tooDarkForDark = dark && lum < 0.10;
-    const iconColor  = tooDarkForDark ? '#FFFFFF' : `#${icon.hex}`;
-    // Fondo neutro (paleta blanco/negro): el logo conserva su color de marca.
+    // Fondo neutro (paleta blanco/negro): el logo conserva su color de marca,
+    // salvo que no haya contraste suficiente contra ese fondo (p. ej. un logo
+    // gris oscuro/negro como el de Prime Video sobre el fondo oscuro), en cuyo
+    // caso se vuelve blanco para no desaparecer.
     const bgColor    = dark ? '#1C1C1F' : '#FFFFFF';
+    const bgLum      = dark ? 0.11 : 1;
+    const contrast   = (Math.max(lum, bgLum) + 0.05) / (Math.min(lum, bgLum) + 0.05);
+    const iconColor  = contrast < 2.2 ? (dark ? '#FFFFFF' : '#111111') : `#${icon.hex}`;
 
     return (
       <View style={{
