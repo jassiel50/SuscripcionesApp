@@ -68,3 +68,13 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   cash: 'Efectivo',
   other: 'Otro',
 };
+
+/** Índice de cada categoría en la paleta vívida del tema (colores de gráficas). */
+export const CATEGORY_VIVID_INDEX: Record<Category, number> = {
+  productivity: 0,  // índigo
+  entertainment: 1, // rosa
+  finance: 2,       // ámbar
+  health: 3,        // verde
+  other: 4,         // cian
+  education: 5,     // violeta
+};

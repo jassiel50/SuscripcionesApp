@@ -7,6 +7,9 @@ import { SubIcon } from '../utils/brandIcons';
 import { moneyShort } from '../utils/format';
 import { radius, spacing, type } from '../theme/tokens';
 import { FilterPills, PressableScale, SearchField, Tag } from './ui/primitives';
+import { ScreenBackground } from './ui/glass';
+import { useStackHeaderSpace } from './ui/chrome';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import {
   ALL_CATEGORIES, PREDEFINED_SUBSCRIPTIONS,
   type Plan, type PredefinedSubscription, type ServiceCategory,
@@ -30,6 +33,7 @@ export default function CatalogBrowser({
 }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const headerSpace = useStackHeaderSpace();
   const [query, setQuery] = useState('');
   const [cat, setCat] = useState<Cat>('Todos');
   const [selected, setSelected] = useState<PredefinedSubscription | null>(null);
@@ -47,14 +51,15 @@ export default function CatalogBrowser({
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+    <View style={{ flex: 1 }}>
+      <ScreenBackground scene="neutral" />
       <FlatList
         data={filtered}
         keyExtractor={i => i.id}
         numColumns={2}
         keyboardShouldPersistTaps="handled"
         columnWrapperStyle={s.gridRow}
-        contentContainerStyle={{ paddingBottom: bottomInset }}
+        contentContainerStyle={{ paddingTop: headerSpace + 8, paddingBottom: bottomInset }}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View style={{ gap: 14, marginBottom: 16 }}>
@@ -67,10 +72,11 @@ export default function CatalogBrowser({
             />
           </View>
         }
-        renderItem={({ item }) => {
+        renderItem={({ item, index }) => {
           const min = Math.min(...item.planes.map(p => p.precioMensual));
           return (
-            <PressableScale onPress={() => setSelected(item)} style={[s.card, { backgroundColor: colors.surface }]} accessibilityRole="button" accessibilityLabel={item.nombre}>
+            <Animated.View entering={FadeInDown.delay(Math.min(index, 10) * 40).springify().damping(20)}>
+            <PressableScale onPress={() => setSelected(item)} style={[s.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]} accessibilityRole="button" accessibilityLabel={item.nombre}>
               <SubIcon name={item.nombre} subId={item.id} color={item.color} size={54} borderRadius={27} />
               <Text style={[s.cardName, { color: colors.text }]} numberOfLines={1}>{item.nombre}</Text>
               <Text style={[s.cardCat, { color: colors.subtext }]}>{item.categoria}</Text>
@@ -79,6 +85,7 @@ export default function CatalogBrowser({
                 <Text style={[s.cardPrice, { color: colors.text }]}>{moneyShort(min)}</Text>
               </View>
             </PressableScale>
+            </Animated.View>
           );
         }}
         ListEmptyComponent={
@@ -138,7 +145,7 @@ export default function CatalogBrowser({
 
 const s = StyleSheet.create({
   gridRow: { gap: 12, paddingHorizontal: spacing.screen, marginBottom: 12 },
-  card: { width: CARD_W, borderRadius: radius.lg, padding: 16, gap: 4 },
+  card: { width: CARD_W, borderRadius: radius.lg, padding: 16, gap: 4, borderWidth: StyleSheet.hairlineWidth },
   cardName: { fontSize: 16, fontWeight: '900', letterSpacing: -0.3, marginTop: 10 },
   cardCat: { fontSize: 12, fontWeight: '700' },
   cardBottom: { flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 8 },

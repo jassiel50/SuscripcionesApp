@@ -1,7 +1,29 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Platform, StyleSheet, Text, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient as SvgGradient, Path, Stop } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+  useAnimatedProps, useAnimatedStyle, useSharedValue, withDelay, withTiming,
+} from 'react-native-reanimated';
 import { useTheme } from '../../hooks/useTheme';
+import { duration, easeOut } from '../../theme/motion';
+
+const AnimatedPath = Animated.createAnimatedComponent(Path);
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
+/** En web los animatedProps de SVG no son confiables: se dibuja directo al valor final. */
+const ANIMATE = Platform.OS !== 'web';
+
+/** Progreso 0 → 1 que se reinicia cuando cambia `key` (datos nuevos). */
+function useDraw(key: string, delay = 0) {
+  const p = useSharedValue(ANIMATE ? 0 : 1);
+  useEffect(() => {
+    if (!ANIMATE) return;
+    p.value = 0;
+    p.value = withDelay(delay, withTiming(1, { duration: duration.chart, easing: easeOut }));
+  }, [key, delay, p]);
+  return p;
+}
 
 // ── Curva suave (Catmull-Rom → Bézier) ──────────────────────────────────────
 
@@ -24,38 +46,51 @@ function smoothPath(pts: Pt[]): string {
   return d;
 }
 
-// ── AreaChart: línea suave con relleno degradado (estilo "Total Balance") ───
+function polyLength(pts: Pt[]): number {
+  let l = 0;
+  for (let i = 1; i < pts.length; i++) l += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+  return l * 1.08; // la curva es un poco más larga que la poligonal
+}
+
+// ── AreaChart: línea con degradado de color que se "dibuja" al aparecer ────
 
 export function AreaChart({
-  data, labels, height = 140, color, labelColor, highlightIndex, showDots = true, id = 'area',
+  data, labels, height = 140, colors: stroke, labelColor, highlightIndex, id = 'area',
 }: {
   data: number[];
   labels?: string[];
   height?: number;
-  color?: string;
-  /** Color de etiquetas (útil sobre fondos con gradiente). */
+  /** Degradado del trazo (izquierda → derecha). */
+  colors?: readonly [string, string];
   labelColor?: string;
   highlightIndex?: number;
-  showDots?: boolean;
   id?: string;
 }) {
   const { colors } = useTheme();
   const [w, setW] = useState(0);
-  const stroke = color ?? colors.accent;
-  const pad = 8;
+  const [c0, c1] = stroke ?? colors.chartLine;
+  const pad = 10;
+  const inset = 10;
 
   const onLayout = (e: LayoutChangeEvent) => setW(e.nativeEvent.layout.width);
 
-  const max = Math.max(...data, 1);
-  const min = Math.min(...data, 0);
-  const span = max - min || 1;
-  const inset = 10; // evita que el punto resaltado se recorte en los bordes
-  const pts: Pt[] = data.map((v, i) => ({
-    x: data.length === 1 ? w / 2 : inset + (i / (data.length - 1)) * (w - inset * 2),
-    y: pad + (1 - (v - min) / span) * (height - pad * 2),
-  }));
-  const line = smoothPath(pts);
-  const area = pts.length > 1 ? `${line} L ${w} ${height} L 0 ${height} Z` : '';
+  const { pts, line, area, len } = useMemo(() => {
+    const max = Math.max(...data, 1);
+    const min = Math.min(...data, 0);
+    const span = max - min || 1;
+    const pts: Pt[] = data.map((v, i) => ({
+      x: data.length === 1 ? w / 2 : inset + (i / (data.length - 1)) * (w - inset * 2),
+      y: pad + (1 - (v - min) / span) * (height - pad * 2),
+    }));
+    const line = smoothPath(pts);
+    const area = pts.length > 1 ? `${line} L ${pts[pts.length - 1].x} ${height} L ${pts[0].x} ${height} Z` : '';
+    return { pts, line, area, len: polyLength(pts) };
+  }, [data, w, height]);
+
+  const draw = useDraw(`${data.join(',')}-${w}`);
+  const lineProps = useAnimatedProps(() => ({ strokeDashoffset: len * (1 - draw.value) }));
+  const areaProps = useAnimatedProps(() => ({ opacity: draw.value }));
+  const dotProps = useAnimatedProps(() => ({ r: 5 * Math.max(0, (draw.value - 0.7) / 0.3) }));
   const hi = highlightIndex != null ? pts[highlightIndex] : undefined;
 
   return (
@@ -63,20 +98,30 @@ export function AreaChart({
       {w > 0 && (
         <Svg width={w} height={height}>
           <Defs>
+            <SvgGradient id={`${id}-stroke`} x1="0" y1="0" x2="1" y2="0">
+              <Stop offset="0" stopColor={c0} />
+              <Stop offset="1" stopColor={c1} />
+            </SvgGradient>
             <SvgGradient id={`${id}-fill`} x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor={stroke} stopOpacity={0.45} />
-              <Stop offset="1" stopColor={stroke} stopOpacity={0.02} />
+              <Stop offset="0" stopColor={c1} stopOpacity={0.35} />
+              <Stop offset="0.6" stopColor={c0} stopOpacity={0.12} />
+              <Stop offset="1" stopColor={c0} stopOpacity={0} />
             </SvgGradient>
           </Defs>
-          <Path d={area} fill={`url(#${id}-fill)`} />
-          <Path d={line} stroke={stroke} strokeWidth={2.5} fill="none" strokeLinecap="round" />
-          {showDots && pts.map((pt, i) => (
-            <Circle key={i} cx={pt.x} cy={pt.y} r={i === highlightIndex ? 0 : 2.5} fill={stroke} />
-          ))}
+          <AnimatedPath d={area} fill={`url(#${id}-fill)`} animatedProps={areaProps} />
+          <AnimatedPath
+            d={line}
+            stroke={`url(#${id}-stroke)`}
+            strokeWidth={3}
+            fill="none"
+            strokeLinecap="round"
+            strokeDasharray={`${len} ${len}`}
+            animatedProps={lineProps}
+          />
           {hi && (
             <>
-              <Circle cx={hi.x} cy={hi.y} r={9} fill={stroke} opacity={0.2} />
-              <Circle cx={hi.x} cy={hi.y} r={5} fill={colors.bg} stroke={stroke} strokeWidth={3} />
+              <Circle cx={hi.x} cy={hi.y} r={11} fill={c1} opacity={0.18} />
+              <AnimatedCircle cx={hi.x} cy={hi.y} fill={colors.card} stroke={c1} strokeWidth={3} animatedProps={dotProps} />
             </>
           )}
         </Svg>
@@ -84,7 +129,11 @@ export function AreaChart({
       {labels && (
         <View style={c.labels}>
           {labels.map((l, i) => (
-            <Text key={i} style={[c.label, { color: labelColor ?? (i === highlightIndex ? colors.text : colors.subtext), opacity: labelColor && i !== highlightIndex ? 0.75 : 1, fontWeight: i === highlightIndex ? '900' : '700' }]}>{l}</Text>
+            <Text key={i} style={[c.label, {
+              color: labelColor ?? (i === highlightIndex ? colors.text : colors.subtext),
+              opacity: labelColor && i !== highlightIndex ? 0.7 : 1,
+              fontWeight: i === highlightIndex ? '800' : '600',
+            }]}>{l}</Text>
           ))}
         </View>
       )}
@@ -92,7 +141,7 @@ export function AreaChart({
   );
 }
 
-// ── Sparkline mínima para tiles ─────────────────────────────────────────────
+// ── Sparkline mínima ────────────────────────────────────────────────────────
 
 export function Sparkline({ data, color, width = 64, height = 24 }: { data: number[]; color: string; width?: number; height?: number }) {
   const max = Math.max(...data, 1);
@@ -109,47 +158,90 @@ export function Sparkline({ data, color, width = 64, height = 24 }: { data: numb
   );
 }
 
-// ── Gauge (arco 270°) estilo "What Experts Says" ────────────────────────────
+// ── Gauge (arco 270°) con trazo degradado y barrido animado ────────────────
 
-function arc(cx: number, cy: number, r: number, startDeg: number, endDeg: number): string {
+function arcPath(cx: number, r: number, startDeg: number, endDeg: number): string {
   const toRad = (d: number) => ((d - 90) * Math.PI) / 180;
-  const s = { x: cx + r * Math.cos(toRad(startDeg)), y: cy + r * Math.sin(toRad(startDeg)) };
-  const e = { x: cx + r * Math.cos(toRad(endDeg)), y: cy + r * Math.sin(toRad(endDeg)) };
+  const s = { x: cx + r * Math.cos(toRad(startDeg)), y: cx + r * Math.sin(toRad(startDeg)) };
+  const e = { x: cx + r * Math.cos(toRad(endDeg)), y: cx + r * Math.sin(toRad(endDeg)) };
   const large = endDeg - startDeg > 180 ? 1 : 0;
   return `M ${s.x} ${s.y} A ${r} ${r} 0 ${large} 1 ${e.x} ${e.y}`;
 }
 
 export function Gauge({
-  value, size = 110, stroke = 10, color, children,
+  value, size = 116, stroke = 11, colors: grad, children, id = 'gauge',
 }: {
-  value: number; size?: number; stroke?: number; color?: string; children?: React.ReactNode;
+  value: number; size?: number; stroke?: number; colors?: readonly [string, string]; children?: React.ReactNode; id?: string;
 }) {
   const { colors } = useTheme();
   const v = Math.max(0, Math.min(1, value));
   const r = (size - stroke) / 2;
   const cx = size / 2;
-  const start = -135;
-  const end = 135;
-  const cur = start + (end - start) * v;
-  const col = color ?? colors.accent;
-  const endRad = ((cur - 90) * Math.PI) / 180;
+  const [g0, g1] = grad ?? colors.chartLine;
+  const len = r * (270 * Math.PI / 180);
+  const draw = useDraw(`${v}`, 120);
+  const arcProps = useAnimatedProps(() => ({ strokeDashoffset: len * (1 - v * draw.value) }));
+  const knobProps = useAnimatedProps(() => {
+    const deg = -135 + 270 * v * draw.value;
+    const rad = ((deg - 90) * Math.PI) / 180;
+    return { cx: cx + r * Math.cos(rad), cy: cx + r * Math.sin(rad) };
+  });
 
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
       <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
-        <Path d={arc(cx, cx, r, start, end)} stroke={colors.separator} strokeWidth={stroke} fill="none" strokeLinecap="round" />
-        {v > 0.001 && <Path d={arc(cx, cx, r, start, cur)} stroke={col} strokeWidth={stroke} fill="none" strokeLinecap="round" />}
-        {v > 0.001 && <Circle cx={cx + r * Math.cos(endRad)} cy={cx + r * Math.sin(endRad)} r={stroke / 2 + 2} fill={colors.bg} stroke={col} strokeWidth={3} />}
+        <Defs>
+          <SvgGradient id={id} x1="0" y1="1" x2="1" y2="0">
+            <Stop offset="0" stopColor={g0} />
+            <Stop offset="1" stopColor={g1} />
+          </SvgGradient>
+        </Defs>
+        <Path d={arcPath(cx, r, -135, 135)} stroke={colors.separator} strokeWidth={stroke} fill="none" strokeLinecap="round" />
+        {v > 0.001 && (
+          <>
+            <AnimatedPath
+              d={arcPath(cx, r, -135, 135)}
+              stroke={`url(#${id})`}
+              strokeWidth={stroke}
+              fill="none"
+              strokeLinecap="round"
+              strokeDasharray={`${len} ${len}`}
+              animatedProps={arcProps}
+            />
+            <AnimatedCircle r={stroke / 2 + 2} fill={colors.card} stroke={g1} strokeWidth={3} animatedProps={knobProps} />
+          </>
+        )}
       </Svg>
       {children}
     </View>
   );
 }
 
-// ── Dona por categorías ─────────────────────────────────────────────────────
+// ── Dona por categorías (segmentos a color que se despliegan) ──────────────
+
+function DonutSegment({
+  cx, r, stroke, color, offset, dash, circ, progress,
+}: {
+  cx: number; r: number; stroke: number; color: string; offset: number; dash: number; circ: number;
+  progress: ReturnType<typeof useDraw>;
+}) {
+  const props = useAnimatedProps(() => {
+    const d = Math.max(dash * progress.value, 0.01);
+    return { strokeDasharray: [d, circ - d], strokeDashoffset: -offset * progress.value };
+  });
+  return (
+    <AnimatedCircle
+      cx={cx} cy={cx} r={r}
+      stroke={color} strokeWidth={stroke} fill="none"
+      strokeLinecap="round"
+      transform={`rotate(-90 ${cx} ${cx})`}
+      animatedProps={props}
+    />
+  );
+}
 
 export function Donut({
-  segments, size = 180, stroke = 26, children,
+  segments, size = 190, stroke = 22, children,
 }: {
   segments: { value: number; color: string }[]; size?: number; stroke?: number; children?: React.ReactNode;
 }) {
@@ -157,31 +249,51 @@ export function Donut({
   const r = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
   const total = segments.reduce((t, s) => t + s.value, 0);
-  const gap = segments.length > 1 ? 4 : 0;
+  const gap = segments.length > 1 ? stroke * 0.9 : 0; // hueco que compensa las puntas redondeadas
+  const progress = useDraw(segments.map(s => s.value.toFixed(2)).join(','), 150);
+
   let acc = 0;
+  const arcs = segments.map(seg => {
+    const len = total > 0 ? (seg.value / total) * circ : 0;
+    const out = { color: seg.color, offset: acc, dash: Math.max(len - gap, 0.5) };
+    acc += len;
+    return out;
+  });
+
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
       <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
         <Circle cx={size / 2} cy={size / 2} r={r} stroke={colors.separator} strokeWidth={stroke} fill="none" />
-        {total > 0 && segments.map((seg, i) => {
-          const len = (seg.value / total) * circ;
-          const dash = Math.max(len - gap, 0.1);
-          const offset = -acc;
-          acc += len;
-          return (
-            <Circle
-              key={i}
-              cx={size / 2} cy={size / 2} r={r}
-              stroke={seg.color} strokeWidth={stroke} fill="none"
-              strokeDasharray={`${dash} ${circ - dash}`}
-              strokeDashoffset={offset}
-              strokeLinecap="butt"
-              transform={`rotate(-90 ${size / 2} ${size / 2})`}
-            />
-          );
-        })}
+        {total > 0 && arcs.map((a, i) => (
+          <DonutSegment key={i} cx={size / 2} r={r} stroke={stroke} color={a.color} offset={a.offset} dash={a.dash} circ={circ} progress={progress} />
+        ))}
       </Svg>
       {children}
+    </View>
+  );
+}
+
+// ── Barra de progreso animada (con color sólido o degradado) ────────────────
+
+export function ProgressBar({
+  value, color, colors: grad, height = 8, delay = 0, style,
+}: {
+  value: number; color?: string; colors?: readonly [string, string]; height?: number; delay?: number; style?: StyleProp<ViewStyle>;
+}) {
+  const { colors } = useTheme();
+  const v = Math.max(0, Math.min(1, value));
+  const w = useSharedValue(ANIMATE ? 0 : v);
+  useEffect(() => {
+    w.value = ANIMATE ? withDelay(delay, withTiming(v, { duration: duration.slow, easing: easeOut })) : v;
+  }, [v, delay, w]);
+  const fill = useAnimatedStyle(() => ({ width: `${w.value * 100}%` }));
+  return (
+    <View style={[{ height, borderRadius: height / 2, overflow: 'hidden', backgroundColor: colors.separator }, style]}>
+      <Animated.View style={[{ height, borderRadius: height / 2, overflow: 'hidden' }, fill]}>
+        {grad
+          ? <LinearGradient colors={grad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
+          : <View style={[StyleSheet.absoluteFill, { backgroundColor: color ?? colors.ink }]} />}
+      </Animated.View>
     </View>
   );
 }

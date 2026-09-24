@@ -1,19 +1,24 @@
+import { Platform } from 'react-native';
+
 /**
- * Subly Design System — tokens (monocromático)
+ * Subly Design System — "Subly Glass"
  *
- * Paleta blanco y negro: fondo blanco, tarjetas gris muy claro y el "ink"
- * (negro en modo claro / blanco en modo oscuro) para todo lo que es énfasis:
- * pills activas, tab bar, botones principales, cifras. Los gradientes son
- * sutiles (negro → grafito) sólo para dar profundidad.
+ * - UI (texto, botones, pills, íconos) en blanco y negro: el "ink" es negro en
+ *   modo claro y blanco en modo oscuro.
+ * - Fondos con degradado animado por pantalla (estilo Revolut): pastel en claro,
+ *   profundo en oscuro. Encima, superficies de vidrio translúcidas.
+ * - Color "dinámico" sólo donde comunica datos: gráficas, categorías, colores de
+ *   marca de cada suscripción y el rojo de urgencia.
+ * - Una sola familia tipográfica: SF Pro (fuente del sistema en iOS).
  *
- * El único color funcional es el rojo de `urgent` (cobro en ≤ 3 días o
- * presupuesto excedido). Los logos de marca conservan su color porque son
- * contenido, no UI.
- *
- * Todo color de la app debe salir de aquí (vía `useTheme()`), nunca hardcodeado.
+ * Todo color de la app sale de aquí (vía `useTheme()`), nunca hardcodeado.
  */
 
 type Gradient = readonly [string, string];
+type Gradient3 = readonly [string, string, string];
+
+/** Escenas de fondo: cada pantalla tiene su propio degradado. */
+export type Scene = 'home' | 'calendar' | 'stats' | 'profile' | 'neutral';
 
 export interface ThemeColors {
   bg: string; surface: string; surfaceAlt: string; card: string; cardBorder: string;
@@ -25,7 +30,15 @@ export interface ThemeColors {
   onInk: string;
   accent: string; accentSoft: string; accentText: string;
   gradient: Gradient; gradientAlt: Gradient;
-  /** Escala de grises para series de gráficas (de mayor a menor contraste). */
+  /** Vidrio: relleno translúcido y borde de las superficies glass. */
+  glass: string; glassBorder: string; glassStrong: string;
+  /** Degradados de fondo por escena (arriba → abajo) y su "segunda fase" para la animación. */
+  scenes: Record<Scene, { a: Gradient3; b: Gradient3 }>;
+  /** Paleta vívida para series de gráficas (categorías, métodos de pago…). */
+  vivid: readonly string[];
+  /** Degradados para trazos de gráficas. */
+  chartLine: Gradient; chartGood: Gradient; chartWarn: Gradient; chartBad: Gradient;
+  /** Escala de grises (compatibilidad). */
   chart: readonly string[];
   success: string; successSoft: string; warning: string; warningSoft: string;
   urgent: string; urgentSoft: string;
@@ -33,68 +46,100 @@ export interface ThemeColors {
 }
 
 const LIGHT: ThemeColors = {
-  bg:          '#FFFFFF',
-  surface:     '#F4F4F5',
-  surfaceAlt:  '#EFEFF1',
+  bg:          '#F7F7FB',
+  surface:     'rgba(255,255,255,0.72)',
+  surfaceAlt:  'rgba(255,255,255,0.55)',
   card:        '#FFFFFF',
-  cardBorder:  'rgba(0,0,0,0.06)',
-  separator:   '#E4E4E7',
-  overlay:     'rgba(0,0,0,0.45)',
+  cardBorder:  'rgba(255,255,255,0.9)',
+  separator:   'rgba(9,9,11,0.08)',
+  overlay:     'rgba(9,9,11,0.35)',
 
   text:        '#09090B',
-  subtext:     '#71717A',
-  muted:       '#A1A1AA',
+  subtext:     '#5B5B66',
+  muted:       '#8E8E99',
 
   ink:         '#09090B',
   onInk:       '#FFFFFF',
   accent:      '#09090B',
-  accentSoft:  '#E9E9EC',
+  accentSoft:  'rgba(9,9,11,0.06)',
   accentText:  '#FFFFFF',
   gradient:    ['#09090B', '#3F3F46'],
   gradientAlt: ['#18181B', '#52525B'],
+
+  glass:       'rgba(255,255,255,0.62)',
+  glassStrong: 'rgba(255,255,255,0.85)',
+  glassBorder: 'rgba(255,255,255,0.95)',
+  scenes: {
+    home:     { a: ['#C7D2FE', '#E0E7FF', '#F7F7FB'], b: ['#BFDBFE', '#EDE9FE', '#F7F7FB'] },
+    calendar: { a: ['#BAE6FD', '#E0F2FE', '#F7F7FB'], b: ['#C7D2FE', '#CFFAFE', '#F7F7FB'] },
+    stats:    { a: ['#DDD6FE', '#FCE7F3', '#F7F7FB'], b: ['#E9D5FF', '#E0E7FF', '#F7F7FB'] },
+    profile:  { a: ['#E4E4E7', '#EEF2FF', '#F7F7FB'], b: ['#E0E7FF', '#F4F4F5', '#F7F7FB'] },
+    neutral:  { a: ['#E0E7FF', '#F1F5F9', '#F7F7FB'], b: ['#EDE9FE', '#F1F5F9', '#F7F7FB'] },
+  },
+  vivid:       ['#6366F1', '#EC4899', '#F59E0B', '#10B981', '#06B6D4', '#8B5CF6', '#F97316', '#84CC16'],
+  chartLine:   ['#6366F1', '#EC4899'],
+  chartGood:   ['#10B981', '#06B6D4'],
+  chartWarn:   ['#F59E0B', '#F97316'],
+  chartBad:    ['#F97316', '#DC2626'],
   chart:       ['#09090B', '#52525B', '#8E8E96', '#B4B4BB', '#D4D4D8', '#E9E9EC'],
 
-  success:     '#09090B',
-  successSoft: '#EDEDEF',
-  warning:     '#09090B',
-  warningSoft: '#EDEDEF',
+  success:     '#059669',
+  successSoft: 'rgba(16,185,129,0.14)',
+  warning:     '#D97706',
+  warningSoft: 'rgba(245,158,11,0.16)',
   urgent:      '#DC2626',
-  urgentSoft:  '#FDECEC',
+  urgentSoft:  'rgba(220,38,38,0.12)',
 
   tabBar:      '#09090B',
-  shadow:      '#000000',
+  shadow:      '#1E1B4B',
   primary:     '#09090B',
   primaryText: '#FFFFFF',
 };
 
 const DARK: ThemeColors = {
-  bg:          '#000000',
-  surface:     '#141416',
-  surfaceAlt:  '#18181B',
-  card:        '#141416',
-  cardBorder:  'rgba(255,255,255,0.08)',
-  separator:   '#27272A',
-  overlay:     'rgba(0,0,0,0.65)',
+  bg:          '#05050C',
+  surface:     'rgba(255,255,255,0.08)',
+  surfaceAlt:  'rgba(255,255,255,0.05)',
+  card:        '#15151C',
+  cardBorder:  'rgba(255,255,255,0.10)',
+  separator:   'rgba(255,255,255,0.10)',
+  overlay:     'rgba(0,0,0,0.55)',
 
   text:        '#FAFAFA',
-  subtext:     '#A1A1AA',
-  muted:       '#71717A',
+  subtext:     'rgba(250,250,250,0.68)',
+  muted:       'rgba(250,250,250,0.45)',
 
   ink:         '#FAFAFA',
   onInk:       '#09090B',
   accent:      '#FAFAFA',
-  accentSoft:  '#27272A',
+  accentSoft:  'rgba(255,255,255,0.10)',
   accentText:  '#09090B',
   gradient:    ['#FFFFFF', '#D4D4D8'],
   gradientAlt: ['#E4E4E7', '#A1A1AA'],
+
+  glass:       'rgba(255,255,255,0.10)',
+  glassStrong: 'rgba(40,40,58,0.72)',
+  glassBorder: 'rgba(255,255,255,0.14)',
+  scenes: {
+    home:     { a: ['#2B35F5', '#241C8F', '#05050C'], b: ['#1D4ED8', '#3B1C9E', '#05050C'] },
+    calendar: { a: ['#0E7490', '#1E2A8A', '#05050C'], b: ['#1D4ED8', '#115E75', '#05050C'] },
+    stats:    { a: ['#6D28D9', '#3B1470', '#05050C'], b: ['#9D174D', '#4C1D95', '#05050C'] },
+    profile:  { a: ['#3F3F6E', '#1C1B3A', '#05050C'], b: ['#312E81', '#27272A', '#05050C'] },
+    neutral:  { a: ['#27307A', '#15163A', '#05050C'], b: ['#312E81', '#18183A', '#05050C'] },
+  },
+  vivid:       ['#818CF8', '#F472B6', '#FBBF24', '#34D399', '#22D3EE', '#A78BFA', '#FB923C', '#A3E635'],
+  chartLine:   ['#818CF8', '#F472B6'],
+  chartGood:   ['#34D399', '#22D3EE'],
+  chartWarn:   ['#FBBF24', '#FB923C'],
+  chartBad:    ['#FB923C', '#F87171'],
   chart:       ['#FAFAFA', '#C4C4CA', '#9A9AA2', '#71717A', '#52525B', '#3F3F46'],
 
-  success:     '#FAFAFA',
-  successSoft: '#1F1F22',
-  warning:     '#FAFAFA',
-  warningSoft: '#1F1F22',
+  success:     '#34D399',
+  successSoft: 'rgba(52,211,153,0.16)',
+  warning:     '#FBBF24',
+  warningSoft: 'rgba(251,191,36,0.16)',
   urgent:      '#F87171',
-  urgentSoft:  '#2A1215',
+  urgentSoft:  'rgba(248,113,113,0.16)',
 
   tabBar:      '#FAFAFA',
   shadow:      '#000000',
@@ -123,20 +168,31 @@ export const spacing = {
   screen: 20, // padding horizontal estándar de pantalla
 } as const;
 
-/** Escala tipográfica. Pesos altos = look "bold/geométrico" de la referencia. */
+/**
+ * Familia tipográfica única. En iOS 'System' ES SF Pro (Text/Display según
+ * tamaño). SF Pro no se puede redistribuir fuera de plataformas Apple, así que
+ * en Android se usa la sans del sistema y en web la pila de SF con Arial de respaldo.
+ */
+export const fontFamily = Platform.select({
+  ios: 'System',
+  android: 'sans-serif',
+  default: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif',
+}) as string;
+
+/** Escala tipográfica (SF Pro). */
 export const type = {
-  display:  { fontSize: 40, fontWeight: '900' as const, letterSpacing: -1.2 },
-  title:    { fontSize: 30, fontWeight: '900' as const, letterSpacing: -0.8 },
-  h1:       { fontSize: 24, fontWeight: '800' as const, letterSpacing: -0.5 },
-  h2:       { fontSize: 19, fontWeight: '800' as const, letterSpacing: -0.3 },
-  h3:       { fontSize: 16, fontWeight: '700' as const, letterSpacing: -0.2 },
-  body:     { fontSize: 15, fontWeight: '500' as const },
-  bodyBold: { fontSize: 15, fontWeight: '700' as const },
-  caption:  { fontSize: 13, fontWeight: '600' as const },
-  micro:    { fontSize: 11, fontWeight: '700' as const, letterSpacing: 0.2 },
+  display:  { fontFamily, fontSize: 40, fontWeight: '800' as const, letterSpacing: -1.2 },
+  title:    { fontFamily, fontSize: 30, fontWeight: '800' as const, letterSpacing: -0.8 },
+  h1:       { fontFamily, fontSize: 24, fontWeight: '800' as const, letterSpacing: -0.5 },
+  h2:       { fontFamily, fontSize: 19, fontWeight: '700' as const, letterSpacing: -0.3 },
+  h3:       { fontFamily, fontSize: 16, fontWeight: '700' as const, letterSpacing: -0.2 },
+  body:     { fontFamily, fontSize: 15, fontWeight: '500' as const },
+  bodyBold: { fontFamily, fontSize: 15, fontWeight: '700' as const },
+  caption:  { fontFamily, fontSize: 13, fontWeight: '600' as const },
+  micro:    { fontFamily, fontSize: 11, fontWeight: '700' as const, letterSpacing: 0.2 },
 } as const;
 
-/** Sombra suave "flotante" (tab bar, FAB, botones con gradiente). */
+/** Sombra suave "flotante" (tab bar, FAB, botones). */
 export function floatShadow(color: string, strength = 1) {
   return {
     shadowColor: color,

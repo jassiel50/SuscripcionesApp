@@ -1,5 +1,6 @@
 import React from 'react';
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, ToastAndroid, View } from 'react-native';
+import { Alert, Platform, Pressable, StyleSheet, Text, ToastAndroid, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 import * as Clipboard from 'expo-clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
@@ -8,8 +9,11 @@ import { useSubscriptions } from '../../src/hooks/useSubscriptions';
 import { useTheme } from '../../src/hooks/useTheme';
 import { usePaymentCards } from '../../src/hooks/usePaymentCards';
 import { CardChip } from '../../src/components/CardPickerModal';
-import { GradientButton, GradientCircle, NotchCard, Tag, type IoniconName } from '../../src/components/ui';
-import { SubIcon } from '../../src/utils/brandIcons';
+import {
+  GradientButton, GradientCircle, NotchCard, ProgressBar, ScreenBackground, Tag, useStackHeaderSpace, type IoniconName,
+} from '../../src/components/ui';
+import { enter, successHaptic } from '../../src/theme/motion';
+import { SubIcon, brandColor } from '../../src/utils/brandIcons';
 import { daysUntilRenewal, monthlyEquivalent, nextRenewalDate, relativeDayLabel } from '../../src/utils/dates';
 import { money, moneyParts, moneyShort } from '../../src/utils/format';
 import { radius, spacing, type } from '../../src/theme/tokens';
@@ -27,6 +31,7 @@ export default function SubscriptionDetailScreen() {
   const { cards } = usePaymentCards();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const headerSpace = useStackHeaderSpace();
 
   const sub = subscriptions.find(s => s.id === id) ?? null;
   const linkedCard = sub?.card_id ? cards.find(c => c.id === sub.card_id) ?? null : null;
@@ -42,6 +47,8 @@ export default function SubscriptionDetailScreen() {
   const days = daysUntilRenewal(sub);
   const next = nextRenewalDate(sub);
   const urgent = days <= 3;
+  // Color de marca del servicio: tiñe el fondo y la barra de progreso.
+  const tint = brandColor(sub.name, sub.color, colors.vivid);
   const cycleDays = sub.billing_cycle === 'yearly' ? 365 : 30;
   const cycleProgress = Math.max(0, Math.min(1, 1 - days / cycleDays));
   const monthly = monthlyEquivalent(sub);
@@ -54,7 +61,7 @@ export default function SubscriptionDetailScreen() {
   const handleDelete = () => {
     Alert.alert('Eliminar suscripción', `¿Eliminar ${sub.name}? Esta acción no se puede deshacer.`, [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: async () => { await remove(sub); router.back(); } },
+      { text: 'Eliminar', style: 'destructive', onPress: async () => { await remove(sub); successHaptic(); router.back(); } },
     ]);
   };
 
@@ -73,11 +80,13 @@ export default function SubscriptionDetailScreen() {
   ];
 
   return (
-    <View style={[s.root, { backgroundColor: colors.bg }]}>
+    <View style={s.root}>
+      <ScreenBackground scene="neutral" tint={tint} />
       <Stack.Screen options={{ title: '' }} />
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}>
+      <Animated.ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: headerSpace + 4, paddingBottom: insets.bottom + 32 }}>
 
         {/* Hero con muesca */}
+        <Animated.View entering={enter(0)}>
         <NotchCard
           fill={colors.surface}
           notch={84}
@@ -99,34 +108,33 @@ export default function SubscriptionDetailScreen() {
             <SubIcon name={sub.name} color={sub.color} size={96} borderRadius={48} />
           </View>
         </NotchCard>
+        </Animated.View>
 
         {/* Progreso del ciclo (barra simple: más clara que un medidor aquí) */}
-        <View style={[s.cycle, { backgroundColor: colors.surface }]}>
+        <Animated.View entering={enter(1)} style={[s.cycle, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
           <View style={s.cycleTop}>
             <Text style={[type.h3, { color: colors.text }]}>Siguiente cobro</Text>
             <Text style={[s.cycleDays, { color: urgent ? colors.urgent : colors.text }]}>{relativeDayLabel(days)}</Text>
           </View>
-          <View style={[s.cycleTrack, { backgroundColor: colors.separator }]}>
-            <View style={[s.cycleFill, { width: `${Math.max(cycleProgress, 0.03) * 100}%`, backgroundColor: urgent ? colors.urgent : colors.ink }]} />
-          </View>
+          <ProgressBar value={Math.max(cycleProgress, 0.03)} colors={urgent ? colors.chartBad : [tint + '88', tint]} height={8} delay={350} />
           <Text style={[s.cycleFoot, { color: colors.subtext }]}>
             {next.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })}
           </Text>
-        </View>
+        </Animated.View>
 
         {/* Cifras clave */}
-        <View style={s.insights}>
+        <Animated.View entering={enter(2)} style={s.insights}>
           {[
             { label: 'Al mes', value: moneyShort(monthly) },
             { label: 'Al año', value: moneyShort(annual) },
             { label: 'De tu gasto', value: `${Math.round(share * 100)}%` },
           ].map(it => (
-            <View key={it.label} style={[s.insight, { backgroundColor: colors.surface }]}>
+            <View key={it.label} style={[s.insight, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
               <Text style={[s.insightValue, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>{it.value}</Text>
               <Text style={[s.insightLabel, { color: colors.subtext }]}>{it.label}</Text>
             </View>
           ))}
-        </View>
+        </Animated.View>
         {paidApprox > 0 && (
           <Text style={[s.paid, { color: colors.subtext }]}>
             Llevas aprox. <Text style={{ color: colors.text, fontWeight: '900' }}>{moneyShort(paidApprox)}</Text> pagados desde que la agregaste.
@@ -135,10 +143,10 @@ export default function SubscriptionDetailScreen() {
 
         {/* Detalles */}
         <Text style={[s.section, { color: colors.text }]}>Detalles</Text>
-        <View style={[s.list, { backgroundColor: colors.surface }]}>
+        <View style={[s.list, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
           {rows.map((row, i) => (
             <View key={row.label} style={[s.row, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.separator }]}>
-              <View style={[s.rowIcon, { backgroundColor: row.tint === colors.urgent ? colors.urgentSoft : colors.bg }]}>
+              <View style={[s.rowIcon, { backgroundColor: row.tint === colors.urgent ? colors.urgentSoft : colors.accentSoft }]}>
                 <Ionicons name={row.icon} size={17} color={row.tint} />
               </View>
               <Text style={[s.rowLabel, { color: colors.subtext }]} numberOfLines={1}>{row.label}</Text>
@@ -154,7 +162,7 @@ export default function SubscriptionDetailScreen() {
             <Pressable
               disabled={!(linkedCard.kind === 'clabe' && linkedCard.clabe)}
               onPress={() => linkedCard.clabe && copyClabe(linkedCard.clabe)}
-              style={[s.list, s.cardRow, { backgroundColor: colors.surface }]}
+              style={[s.list, s.cardRow, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}
             >
               <View style={{ flex: 1, gap: 4 }}>
                 <Text style={[type.bodyBold, { color: colors.text }]}>{linkedCard.alias}</Text>
@@ -176,7 +184,7 @@ export default function SubscriptionDetailScreen() {
             <Ionicons name="trash-outline" size={20} color={colors.urgent} />
           </Pressable>
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
     </View>
   );
 }
@@ -193,21 +201,19 @@ const s = StyleSheet.create({
   heroDec: { fontSize: 18, fontWeight: '800' },
   heroPer: { fontSize: 13, fontWeight: '700' },
 
-  cycle: { marginHorizontal: spacing.screen, marginTop: 14, borderRadius: radius.lg, padding: 18, gap: 12 },
+  cycle: { marginHorizontal: spacing.screen, marginTop: 14, borderRadius: radius.lg, padding: 18, gap: 12 , borderWidth: StyleSheet.hairlineWidth },
   cycleTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cycleDays: { fontSize: 15, fontWeight: '900' },
-  cycleTrack: { height: 8, borderRadius: 4, overflow: 'hidden' },
-  cycleFill: { height: 8, borderRadius: 4 },
   cycleFoot: { fontSize: 13, fontWeight: '700' },
 
   insights: { flexDirection: 'row', gap: 10, marginHorizontal: spacing.screen, marginTop: 10 },
-  insight: { flex: 1, borderRadius: radius.md, padding: 14, gap: 2 },
+  insight: { flex: 1, borderRadius: radius.md, padding: 14, gap: 2 , borderWidth: StyleSheet.hairlineWidth },
   insightLabel: { fontSize: 12, fontWeight: '700' },
   insightValue: { fontSize: 20, fontWeight: '900', letterSpacing: -0.6 },
   paid: { fontSize: 13, fontWeight: '600', marginHorizontal: spacing.screen, marginTop: 12 },
 
   section: { ...type.h2, marginHorizontal: spacing.screen, marginTop: 26, marginBottom: 12 },
-  list: { marginHorizontal: spacing.screen, borderRadius: radius.lg, overflow: 'hidden' },
+  list: { marginHorizontal: spacing.screen, borderRadius: radius.lg, overflow: 'hidden' , borderWidth: StyleSheet.hairlineWidth },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14 },
   rowIcon: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
   rowLabel: { flex: 1, fontSize: 14, fontWeight: '700' },

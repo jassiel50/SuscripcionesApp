@@ -14,7 +14,10 @@ import { useTheme } from '../../src/hooks/useTheme';
 import { usePaymentCards } from '../../src/hooks/usePaymentCards';
 import CardPickerModal, { CardChip } from '../../src/components/CardPickerModal';
 import CatalogBrowser from '../../src/components/CatalogBrowser';
-import { FilterPills, GradientButton, PressableScale, type IoniconName } from '../../src/components/ui';
+import {
+  FilterPills, GradientButton, PressableScale, ScreenBackground, useStackHeaderSpace, type IoniconName,
+} from '../../src/components/ui';
+import { impactHaptic, successHaptic } from '../../src/theme/motion';
 import { SubIcon } from '../../src/utils/brandIcons';
 import { longDate, parseDate, toDateStr } from '../../src/utils/dates';
 import { money } from '../../src/utils/format';
@@ -47,6 +50,7 @@ function defaultRenewal() {
 export default function NewSubscriptionScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const headerSpace = useStackHeaderSpace();
   const { id, catalogId, planPrice: planPriceParam, planPeriod, custom } = useLocalSearchParams<{
     id?: string; catalogId?: string; planName?: string; planPrice?: string; planPeriod?: string; custom?: string;
   }>();
@@ -126,6 +130,7 @@ export default function NewSubscriptionScreen() {
     }
 
     setSaving(true);
+    impactHaptic();
     try {
       const data = {
         name: name.trim(), price: priceNum, billing_cycle: billing,
@@ -143,6 +148,7 @@ export default function NewSubscriptionScreen() {
       } else {
         await add(data);
       }
+      successHaptic();
       router.back();
     } catch (e) {
       Alert.alert('No se pudo guardar', 'Revisa tu conexión e inténtalo de nuevo.');
@@ -191,10 +197,11 @@ export default function NewSubscriptionScreen() {
   return (
     <>
       <Stack.Screen options={{ title: isEdit ? 'Editar suscripción' : 'Nueva suscripción' }} />
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={90}>
+      <ScreenBackground scene="neutral" />
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
-          style={{ flex: 1, backgroundColor: colors.bg }}
-          contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingTop: headerSpace, paddingBottom: insets.bottom + 32 }}
           keyboardShouldPersistTaps="handled"
         >
           {/* Vista previa en vivo */}

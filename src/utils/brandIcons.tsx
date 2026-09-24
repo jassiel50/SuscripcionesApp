@@ -235,3 +235,24 @@ export function getBrandIcon(id: string, name: string): SimpleIcon | null {
   }
   return null;
 }
+
+// ─────────────────────────────────────────────────────────────────
+// Color dinámico de una suscripción (para gráficas/barras)
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Color de marca del servicio (Netflix rojo, Spotify verde…). Si la marca es
+ * negra/gris o no se reconoce, usa el color elegido por el usuario y, si éste
+ * es un gris, un color de respaldo de la paleta vívida.
+ */
+export function brandColor(name: string, fallbackColor: string, vivid: readonly string[], index = 0): string {
+  const icon = getBrandIcon('', name);
+  const candidates = [icon ? `#${icon.hex}` : null, fallbackColor];
+  for (const c of candidates) {
+    if (!c || !/^#[0-9a-f]{6}$/i.test(c)) continue;
+    const r = parseInt(c.slice(1, 3), 16), g = parseInt(c.slice(3, 5), 16), b = parseInt(c.slice(5, 7), 16);
+    const sat = Math.max(r, g, b) - Math.min(r, g, b);
+    if (sat > 40) return c; // tiene color real (no es gris/negro)
+  }
+  return vivid[index % vivid.length];
+}

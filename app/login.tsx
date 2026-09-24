@@ -19,6 +19,8 @@ import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { auth } from '../src/firebase';
 import { useTheme } from '../src/hooks/useTheme';
+import { ScreenBackground } from '../src/components/ui/glass';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -140,7 +142,8 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={[s.root, { backgroundColor: colors.bg }]}>
+    <SafeAreaView style={s.root}>
+      <ScreenBackground scene="home" />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -151,7 +154,7 @@ export default function LoginScreen() {
           showsVerticalScrollIndicator={false}
         >
           {/* Brand */}
-          <View style={s.brandSection}>
+          <Animated.View entering={FadeInUp.springify().damping(18)} style={s.brandSection}>
             <LinearGradient colors={colors.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.logo}>
               <Ionicons name="repeat" size={54} color={colors.onInk} />
             </LinearGradient>
@@ -167,10 +170,10 @@ export default function LoginScreen() {
                 </View>
               ))}
             </View>
-          </View>
+          </Animated.View>
 
           {/* Buttons */}
-          <View style={s.btnSection}>
+          <Animated.View entering={FadeInDown.delay(150).springify().damping(18)} style={s.btnSection}>
             {error && (
               <View style={[s.errorBox, { backgroundColor: '#FF3B3022', borderColor: '#FF3B30' }]}>
                 <Ionicons name="alert-circle-outline" size={16} color="#FF3B30" />
@@ -332,7 +335,7 @@ export default function LoginScreen() {
               <FontAwesome name="windows" size={20} color="#00A4EF" />
               <Text style={[s.btnText, { color: colors.text }]}>Microsoft · Próximamente</Text>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
 
           <Text style={[s.legal, { color: colors.subtext }]}>
             Al continuar aceptas nuestros{' '}

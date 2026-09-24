@@ -2,13 +2,14 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../hooks/useTheme';
-import { SubIcon } from '../../utils/brandIcons';
+import { SubIcon, brandColor } from '../../utils/brandIcons';
 import { CATEGORY_LABELS, type Subscription } from '../../types';
 import { daysUntilRenewal, nextRenewalDate, relativeDayLabel, shortDate } from '../../utils/dates';
 import { money, moneyParts } from '../../utils/format';
 import { radius, spacing, type } from '../../theme/tokens';
 import { NotchCard } from './NotchCard';
 import { GradientCircle, PressableScale, Tag } from './primitives';
+import { ProgressBar } from './charts';
 
 function cycleProgress(sub: Subscription): number {
   const days = daysUntilRenewal(sub);
@@ -18,12 +19,12 @@ function cycleProgress(sub: Subscription): number {
 
 // ── Fila de lista ───────────────────────────────────────────────────────────
 
-export function SubscriptionRow({ sub, onPress, dateLabel }: { sub: Subscription; onPress: () => void; dateLabel?: string }) {
+export function SubscriptionRow({ sub, onPress, dateLabel, inset }: { sub: Subscription; onPress: () => void; dateLabel?: string; inset?: number }) {
   const { colors } = useTheme();
   const days = daysUntilRenewal(sub);
   const urgent = days <= 3;
   return (
-    <PressableScale onPress={onPress} style={r.row} accessibilityRole="button" accessibilityLabel={`${sub.name}, ${money(sub.price)}`}>
+    <PressableScale onPress={onPress} style={[r.row, inset != null && { paddingHorizontal: inset }]} accessibilityRole="button" accessibilityLabel={`${sub.name}, ${money(sub.price)}`}>
       <SubIcon name={sub.name} color={sub.color} size={52} borderRadius={26} />
       <View style={{ flex: 1, gap: 3 }}>
         <Text style={[type.h3, { color: colors.text }]} numberOfLines={1}>{sub.name}</Text>
@@ -51,8 +52,9 @@ export function UpcomingTile({ sub, onPress }: { sub: Subscription; onPress: () 
   const days = daysUntilRenewal(sub);
   const urgent = days <= 3;
   const tint = urgent ? colors.urgent : colors.ink;
+  const brand = brandColor(sub.name, sub.color, colors.vivid);
   return (
-    <PressableScale onPress={onPress} style={[r.tile, { backgroundColor: colors.surface }]} accessibilityRole="button">
+    <PressableScale onPress={onPress} style={[r.tile, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]} accessibilityRole="button">
       <View style={r.tileTop}>
         <SubIcon name={sub.name} color={sub.color} size={40} borderRadius={20} />
         <View style={{ flex: 1 }}>
@@ -61,9 +63,7 @@ export function UpcomingTile({ sub, onPress }: { sub: Subscription; onPress: () 
         </View>
       </View>
       <Text style={[r.tilePrice, { color: colors.text }]}>{money(sub.price)}</Text>
-      <View style={[r.track, { backgroundColor: colors.separator }]}>
-        <View style={[r.fill, { width: `${cycleProgress(sub) * 100}%`, backgroundColor: tint }]} />
-      </View>
+      <ProgressBar value={cycleProgress(sub)} colors={urgent ? [colors.urgent, colors.urgent] : [brand + '88', brand]} height={6} delay={300} />
       <Text style={[r.tileDays, { color: tint }]}>{relativeDayLabel(days)}</Text>
     </PressableScale>
   );
@@ -120,13 +120,11 @@ const r = StyleSheet.create({
   chip: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.xs },
   chipText: { fontSize: 11, fontWeight: '800' },
 
-  tile: { width: 168, borderRadius: radius.lg, padding: 14, gap: 10 },
+  tile: { width: 168, borderRadius: radius.lg, padding: 14, gap: 10, borderWidth: StyleSheet.hairlineWidth },
   tileTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   tileName: { fontSize: 15, fontWeight: '900', letterSpacing: -0.2 },
   tileSub: { fontSize: 11, fontWeight: '700' },
   tilePrice: { fontSize: 20, fontWeight: '900', letterSpacing: -0.5 },
-  track: { height: 6, borderRadius: 3, overflow: 'hidden' },
-  fill: { height: 6, borderRadius: 3 },
   tileDays: { fontSize: 12, fontWeight: '800' },
 
   featured: { marginHorizontal: spacing.screen, padding: 22, paddingBottom: 18 },

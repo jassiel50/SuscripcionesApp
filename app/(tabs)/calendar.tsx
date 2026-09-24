@@ -1,12 +1,18 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, { FadeIn, FadeOut, ZoomIn } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSubscriptions } from '../../src/hooks/useSubscriptions';
 import { useTheme } from '../../src/hooks/useTheme';
-import { FilterPills, ScreenHeader, SectionHeader, SubscriptionRow, useTabBarSpace } from '../../src/components/ui';
+import {
+  FilterPills, Glass, LargeTitle, PressableScale, ScreenBackground, SectionHeader, SubscriptionRow, TOP_BAR_H, TopBar,
+  useScreenScroll, useTabBarSpace,
+} from '../../src/components/ui';
+import { brandColor } from '../../src/utils/brandIcons';
+import { enter, listLayout, tapHaptic } from '../../src/theme/motion';
 import { daysUntilDate, MONTHS, parseDate, relativeDayLabel, subsOnDate, toDateStr, totalForMonth } from '../../src/utils/dates';
 import { money, moneyShort } from '../../src/utils/format';
 import { radius, spacing, type } from '../../src/theme/tokens';
@@ -40,14 +46,16 @@ function DayCell({
     </Text>
   );
   return (
-    <Pressable onPress={onPress} style={s.dayCell} accessibilityRole="button" accessibilityState={{ selected }}>
+    <Pressable onPress={() => { tapHaptic(); onPress(); }} style={s.dayCell} accessibilityRole="button" accessibilityState={{ selected }}>
       {!compact && (
         <Text style={[s.dayName, { color: selected ? colors.text : colors.subtext }]}>{DAYS_SHORT[date.getDay()]}</Text>
       )}
       {selected ? (
-        <LinearGradient colors={colors.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[s.dayCircle, { width: size, height: size, borderRadius: size / 2 }]}>
-          {num}
-        </LinearGradient>
+        <Animated.View entering={ZoomIn.springify().damping(16).stiffness(260)}>
+          <LinearGradient colors={colors.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[s.dayCircle, { width: size, height: size, borderRadius: size / 2 }]}>
+            {num}
+          </LinearGradient>
+        </Animated.View>
       ) : (
         <View style={[s.dayCircle, { width: size, height: size, borderRadius: size / 2 }, today && { borderWidth: 2, borderColor: colors.accent }]}>
           {num}
@@ -65,6 +73,8 @@ export default function CalendarScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const bottom = useTabBarSpace();
+  const insets = useSafeAreaInsets();
+  const { scrollY, onScroll } = useScreenScroll();
 
   const today = new Date();
   const todayStr = toDateStr(today);
@@ -84,7 +94,7 @@ export default function CalendarScreen() {
   const monthTotal = useMemo(() => totalForMonth(subscriptions, year, month), [subscriptions, year, month]);
 
   const dotsFor = (d: Date) =>
-    subsOnDate(subscriptions, d.getFullYear(), d.getMonth(), d.getDate()).map(sb => sb.color);
+    subsOnDate(subscriptions, d.getFullYear(), d.getMonth(), d.getDate()).map((sb, k) => brandColor(sb.name, sb.color, colors.vivid, k));
 
   const selectedSubs = useMemo(
     () => subsOnDate(subscriptions, selYear, selMonth, selectedDt.getDate()),
@@ -140,17 +150,27 @@ export default function CalendarScreen() {
   const selectedTotal = selectedSubs.reduce((t, sb) => t + sb.price, 0);
 
   return (
-    <SafeAreaView edges={['top']} style={[s.root, { backgroundColor: colors.bg }]}>
-      <ScreenHeader
-        title="Calendario"
-        right={
-          <Pressable onPress={goToday} style={[s.todayBtn, { borderColor: colors.accent }]} hitSlop={6}>
-            <Text style={[s.todayText, { color: colors.accent }]}>Hoy</Text>
-          </Pressable>
-        }
-      />
+    <View style={s.root}>
+      <ScreenBackground scene="calendar" />
+      <TopBar scrollY={scrollY} title="Calendario" />
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: bottom }}>
+      <Animated.ScrollView
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingTop: insets.top + TOP_BAR_H - 12, paddingBottom: bottom }}
+      >
+        <LargeTitle
+          scrollY={scrollY}
+          title="Calendario"
+          right={
+            <PressableScale onPress={goToday} scaleTo={0.92} accessibilityLabel="Ir a hoy">
+              <Glass radius={999} interactive>
+                <Text style={[s.todayText, { color: colors.text }]}>Hoy</Text>
+              </Glass>
+            </PressableScale>
+          }
+        />
         <FilterPills<ViewMode>
           scroll={false}
           value={mode}
@@ -159,16 +179,16 @@ export default function CalendarScreen() {
         />
 
         {/* Tarjeta calendario */}
-        <View style={[s.calendar, { backgroundColor: colors.surface }]}>
+        <Animated.View entering={enter(0)} style={[s.calendar, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
           <View style={s.monthRow}>
-            <Pressable onPress={() => shift(-1)} style={[s.nav, { backgroundColor: colors.bg }]} accessibilityLabel="Anterior">
+            <Pressable onPress={() => shift(-1)} style={[s.nav, { backgroundColor: colors.glassStrong }]} accessibilityLabel="Anterior">
               <Ionicons name="chevron-back" size={18} color={colors.text} />
             </Pressable>
             <View style={{ alignItems: 'center' }}>
               <Text style={[type.h2, { color: colors.text }]}>{MONTHS[month]} {year}</Text>
               <Text style={[s.monthTotal, { color: colors.subtext }]}>{moneyShort(monthTotal)} este mes</Text>
             </View>
-            <Pressable onPress={() => shift(1)} style={[s.nav, { backgroundColor: colors.bg }]} accessibilityLabel="Siguiente">
+            <Pressable onPress={() => shift(1)} style={[s.nav, { backgroundColor: colors.glassStrong }]} accessibilityLabel="Siguiente">
               <Ionicons name="chevron-forward" size={18} color={colors.text} />
             </Pressable>
           </View>
@@ -208,7 +228,7 @@ export default function CalendarScreen() {
               ))}
             </>
           )}
-        </View>
+        </Animated.View>
 
         {/* Día seleccionado */}
         <View style={s.dayHeader}>
@@ -220,16 +240,18 @@ export default function CalendarScreen() {
           )}
         </View>
 
-        {selectedSubs.length > 0 ? (
-          selectedSubs.map(sub => (
-            <SubscriptionRow key={sub.id} sub={sub} onPress={() => router.push(`/subscription/${sub.id}`)} />
-          ))
-        ) : (
-          <View style={[s.free, { backgroundColor: colors.surface }]}>
-            <Ionicons name="checkmark-circle" size={26} color={colors.success} />
-            <Text style={[s.freeText, { color: colors.success }]}>Día libre de cobros</Text>
-          </View>
-        )}
+        <Animated.View key={selected} entering={FadeIn.duration(260)} exiting={FadeOut.duration(120)} layout={listLayout}>
+          {selectedSubs.length > 0 ? (
+            selectedSubs.map(sub => (
+              <SubscriptionRow key={sub.id} sub={sub} onPress={() => router.push(`/subscription/${sub.id}`)} />
+            ))
+          ) : (
+            <View style={[s.free, { backgroundColor: colors.successSoft }]}>
+              <Ionicons name="checkmark-circle" size={26} color={colors.success} />
+              <Text style={[s.freeText, { color: colors.text }]}>Día libre de cobros</Text>
+            </View>
+          )}
+        </Animated.View>
 
         {restOfMonth.length > 0 && (
           <>
@@ -244,17 +266,16 @@ export default function CalendarScreen() {
             ))}
           </>
         )}
-      </ScrollView>
-    </SafeAreaView>
+      </Animated.ScrollView>
+    </View>
   );
 }
 
 const s = StyleSheet.create({
   root: { flex: 1 },
-  todayBtn: { borderWidth: 1.5, borderRadius: radius.pill, paddingHorizontal: 16, paddingVertical: 7 },
-  todayText: { fontSize: 14, fontWeight: '800' },
+  todayText: { fontSize: 14, fontWeight: '700', paddingHorizontal: 16, paddingVertical: 9 },
 
-  calendar: { marginHorizontal: spacing.screen, marginTop: 16, borderRadius: radius.lg, padding: 14, paddingBottom: 10 },
+  calendar: { marginHorizontal: spacing.screen, marginTop: 16, borderRadius: radius.lg, padding: 14, paddingBottom: 10, borderWidth: StyleSheet.hairlineWidth },
   monthRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   monthTotal: { fontSize: 12, fontWeight: '800', marginTop: 2 },
   nav: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },

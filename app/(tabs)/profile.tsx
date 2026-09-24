@@ -1,12 +1,13 @@
 import React, { useCallback, useState } from 'react';
 import {
-  Alert, Image, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, ToastAndroid, View,
+  Alert, Image, Linking, Platform, Pressable, StyleSheet, Text, ToastAndroid, View,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { signOut } from 'firebase/auth';
@@ -17,7 +18,10 @@ import { useTheme } from '../../src/hooks/useTheme';
 import { usePaymentCards } from '../../src/hooks/usePaymentCards';
 import BudgetModal from '../../src/components/BudgetModal';
 import CardPickerModal, { BrandSvgIcon, CardChip, brandIconBg } from '../../src/components/CardPickerModal';
-import { ScreenHeader, SectionHeader, useTabBarSpace, type IoniconName } from '../../src/components/ui';
+import {
+  LargeTitle, ScreenBackground, SectionHeader, TOP_BAR_H, TopBar, useScreenScroll, useTabBarSpace, type IoniconName,
+} from '../../src/components/ui';
+import { enter } from '../../src/theme/motion';
 import { moneyShort } from '../../src/utils/format';
 import { radius, spacing, type } from '../../src/theme/tokens';
 
@@ -31,6 +35,8 @@ export default function ProfileScreen() {
   const { colors, dark } = useTheme();
   const { cards, removeCard, updateCard } = usePaymentCards();
   const bottom = useTabBarSpace();
+  const insets = useSafeAreaInsets();
+  const { scrollY, onScroll } = useScreenScroll();
 
   const [showCardModal, setShowCardModal] = useState(false);
   const [editingCards, setEditingCards] = useState(false);
@@ -97,17 +103,24 @@ export default function ProfileScreen() {
   ];
 
   return (
-    <SafeAreaView edges={['top']} style={[s.root, { backgroundColor: colors.bg }]}>
+    <View style={s.root}>
+      <ScreenBackground scene="profile" />
       <BudgetModal visible={budgetOpen} onClose={() => setBudgetOpen(false)} />
-      <ScreenHeader title="Perfil" />
+      <TopBar scrollY={scrollY} title="Perfil" />
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: bottom }}>
+      <Animated.ScrollView
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingTop: insets.top + TOP_BAR_H - 12, paddingBottom: bottom }}
+      >
+        <LargeTitle scrollY={scrollY} title="Perfil" />
         {/* Tarjeta de usuario */}
-        <View style={[s.userCard, { backgroundColor: colors.surface }]}>
+        <Animated.View entering={enter(0)} style={[s.userCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
           <LinearGradient colors={colors.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.avatarRing}>
             {user?.photoURL
-              ? <Image source={{ uri: user.photoURL }} style={[s.avatar, { borderColor: colors.surface }]} />
-              : <View style={[s.avatar, s.avatarFallback, { borderColor: colors.surface, backgroundColor: colors.accentSoft }]}>
+              ? <Image source={{ uri: user.photoURL }} style={[s.avatar, { borderColor: colors.bg }]} />
+              : <View style={[s.avatar, s.avatarFallback, { borderColor: colors.bg, backgroundColor: colors.bg }]}>
                   <Text style={[s.initials, { color: colors.accent }]}>{initials}</Text>
                 </View>}
           </LinearGradient>
@@ -119,22 +132,22 @@ export default function ProfileScreen() {
               <Text style={[s.providerText, { color: colors.accent }]}>{provider}</Text>
             </View>
           </View>
-        </View>
+        </Animated.View>
 
         {/* Stats */}
-        <View style={s.stats}>
+        <Animated.View entering={enter(1)} style={s.stats}>
           {[
             { value: String(subscriptions.length), label: 'Activas', icon: 'apps' as IoniconName },
             { value: moneyShort(monthlyTotal), label: 'Al mes', icon: 'calendar' as IoniconName },
             { value: moneyShort(yearlyTotal), label: 'Al año', icon: 'trending-up' as IoniconName },
-          ].map(st => (
-            <View key={st.label} style={[s.stat, { backgroundColor: colors.surface }]}>
-              <Ionicons name={st.icon} size={16} color={colors.accent} />
+          ].map((st, i) => (
+            <View key={st.label} style={[s.stat, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+              <Ionicons name={st.icon} size={16} color={colors.vivid[[0, 4, 1][i]]} />
               <Text style={[s.statValue, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>{st.value}</Text>
               <Text style={[s.statLabel, { color: colors.subtext }]}>{st.label}</Text>
             </View>
           ))}
-        </View>
+        </Animated.View>
 
         {/* Tarjetas */}
         <SectionHeader
@@ -142,7 +155,7 @@ export default function ProfileScreen() {
           action={cards.length > 1 ? (editingCards ? 'Listo' : 'Editar') : undefined}
           onAction={() => setEditingCards(v => !v)}
         />
-        <View style={[s.list, { backgroundColor: colors.surface }]}>
+        <View style={[s.list, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
           {sortedCards.map((card, i) => {
             const isClabe = card.kind === 'clabe';
             return (
@@ -210,7 +223,7 @@ export default function ProfileScreen() {
                 key={row.label}
                 onPress={row.onPress}
                 disabled={!row.onPress}
-                style={({ pressed }) => [s.setting, { backgroundColor: colors.surface, opacity: pressed ? 0.7 : 1 }]}
+                style={({ pressed }) => [s.setting, { backgroundColor: colors.surface, borderColor: colors.cardBorder, opacity: pressed ? 0.7 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] }]}
               >
                 <Ionicons name={row.icon} size={22} color={tint} />
                 <Text style={[s.settingLabel, { color: tint }]}>{row.label}</Text>
@@ -226,14 +239,14 @@ export default function ProfileScreen() {
         </View>
 
         <Text style={[s.version, { color: colors.muted }]}>Subly v{Constants.expoConfig?.version ?? '1.0.0'}</Text>
-      </ScrollView>
-    </SafeAreaView>
+      </Animated.ScrollView>
+    </View>
   );
 }
 
 const s = StyleSheet.create({
   root: { flex: 1 },
-  userCard: { flexDirection: 'row', alignItems: 'center', gap: 16, marginHorizontal: spacing.screen, borderRadius: radius.lg, padding: 16 },
+  userCard: { flexDirection: 'row', alignItems: 'center', gap: 16, marginHorizontal: spacing.screen, borderRadius: radius.lg, padding: 16 , borderWidth: StyleSheet.hairlineWidth },
   avatarRing: { width: 76, height: 76, borderRadius: 38, alignItems: 'center', justifyContent: 'center' },
   avatar: { width: 70, height: 70, borderRadius: 35, borderWidth: 3 },
   avatarFallback: { alignItems: 'center', justifyContent: 'center' },
@@ -243,18 +256,18 @@ const s = StyleSheet.create({
   providerText: { fontSize: 11, fontWeight: '800' },
 
   stats: { flexDirection: 'row', gap: 10, marginHorizontal: spacing.screen, marginTop: 12 },
-  stat: { flex: 1, borderRadius: radius.md, padding: 14, gap: 4 },
+  stat: { flex: 1, borderRadius: radius.md, padding: 14, gap: 4 , borderWidth: StyleSheet.hairlineWidth },
   statValue: { fontSize: 19, fontWeight: '900', letterSpacing: -0.5 },
   statLabel: { fontSize: 12, fontWeight: '700' },
 
-  list: { marginHorizontal: spacing.screen, borderRadius: radius.lg, overflow: 'hidden' },
+  list: { marginHorizontal: spacing.screen, borderRadius: radius.lg, overflow: 'hidden' , borderWidth: StyleSheet.hairlineWidth },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 13 },
   rowIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   rowSub: { fontSize: 12, fontWeight: '600', marginTop: 2 },
   copy: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.pill },
   copyText: { fontSize: 12, fontWeight: '800' },
 
-  setting: { flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: radius.md, paddingHorizontal: 18, paddingVertical: 17 },
+  setting: { flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: radius.md, paddingHorizontal: 18, paddingVertical: 17 , borderWidth: StyleSheet.hairlineWidth },
   settingLabel: { flex: 1, fontSize: 16, fontWeight: '800' },
   settingValue: { fontSize: 13, fontWeight: '800' },
   version: { textAlign: 'center', fontSize: 12, fontWeight: '700', marginTop: 24 },

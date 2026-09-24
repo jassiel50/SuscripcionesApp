@@ -3,6 +3,7 @@ import { Tabs } from 'expo-router/js-tabs';
 import { useTheme } from '../../src/hooks/useTheme';
 import { nativeTabsActive } from '../../src/config/ui';
 import FloatingTabBar from '../../src/components/FloatingTabBar';
+import { ChromeProvider } from '../../src/components/ui/chrome';
 
 // ─── NativeTabs (opt-in, ver src/config/ui.ts) ────────────────────────────────
 // require() lazy: sólo se carga si se activa (nunca en Expo Go).
@@ -34,20 +35,27 @@ function NativeTabsLayout() {
   );
 }
 
-// ─── Tab bar flotante con gradiente + FAB (default) ───────────────────────────
+// ─── Tab bar flotante de vidrio + botón "+" (default) ────────────────────────
 
 function FloatingTabsLayout() {
   const { colors } = useTheme();
   return (
-    <Tabs
-      tabBar={props => <FloatingTabBar {...props} />}
-      screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: colors.bg } }}
-    >
-      <Tabs.Screen name="index" />
-      <Tabs.Screen name="calendar" />
-      <Tabs.Screen name="explore" />
-      <Tabs.Screen name="profile" />
-    </Tabs>
+    <ChromeProvider>
+      <Tabs
+        tabBar={props => <FloatingTabBar {...props} />}
+        screenOptions={{
+          headerShown: false,
+          // Transición entre pestañas: desplazamiento + fade (react-navigation 7)
+          animation: 'shift',
+          sceneStyle: { backgroundColor: colors.bg },
+        }}
+      >
+        <Tabs.Screen name="index" />
+        <Tabs.Screen name="calendar" />
+        <Tabs.Screen name="explore" />
+        <Tabs.Screen name="profile" />
+      </Tabs>
+    </ChromeProvider>
   );
 }
 

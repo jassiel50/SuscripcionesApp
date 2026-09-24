@@ -4,17 +4,17 @@
 
 App móvil (iOS / Android) hecha con **Expo SDK 57 + Expo Router + Firebase** para registrar suscripciones (Netflix, Spotify, ChatGPT, gimnasio…), ver el gasto mensual/anual, recibir recordatorios antes de cada cobro y vincular cada servicio a la tarjeta o CLABE con la que se paga.
 
-**Modo claro** — Inicio, lista con filtros, Calendario y Estadísticas
+**Modo claro** — Inicio, Estadísticas (arriba y con scroll: la tab bar se minimiza) y Perfil
 
-![Modo claro 1](docs/screenshots/light-1.jpg)
+![Modo claro](docs/screenshots/glass-light.jpg)
 
-**Modo claro** — Estadísticas (ranking y tips), Perfil, Detalle y Alta
+**Modo oscuro** — fondos profundos estilo Revolut; el Detalle se tiñe con el color de la marca
 
-![Modo claro 2](docs/screenshots/light-2.jpg)
+![Modo oscuro](docs/screenshots/glass-dark.jpg)
 
-**Modo oscuro** (paleta invertida)
+Lista con filtros, Calendario, Detalle (claro) y Calendario (oscuro)
 
-![Modo oscuro](docs/screenshots/dark.jpg)
+![Mixto](docs/screenshots/glass-mix.jpg)
 
 > Las capturas se tomaron en Chromium (build web) con datos de ejemplo. En iOS/Android se ven con la tipografía del sistema (SF Pro / Roboto).
 
@@ -44,9 +44,11 @@ App móvil (iOS / Android) hecha con **Expo SDK 57 + Expo Router + Firebase** pa
 | Backend | **Firebase** 11 (Auth + Firestore) | Login y datos en la nube, en tiempo real (`onSnapshot`) |
 | Auth | Google (`expo-auth-session`), Apple (`expo-apple-authentication`), Email/Password | Inicio de sesión |
 | Notificaciones | `expo-notifications` (trigger `CALENDAR` repetitivo) | Recordatorio 1 día antes del cobro |
-| UI | `expo-linear-gradient`, `react-native-svg`, `@expo/vector-icons` (Ionicons), `simple-icons` | Gradientes, gráficas SVG, iconos y logos de marcas |
+| UI | `expo-linear-gradient`, `react-native-svg`, `@expo/vector-icons` (Ionicons), `simple-icons` | Degradados de fondo, gráficas SVG, iconos y logos de marcas |
+| Vidrio | `expo-glass-effect` (Liquid Glass iOS 26) · `expo-blur` (respaldo iOS < 26, Android y web) | Tab bar, barra superior, buscador y botones de vidrio |
+| Animación | **Reanimated 4** (+ `react-native-worklets`) · `expo-haptics` | Springs en el hilo de UI, entradas escalonadas, gráficas que se dibujan, háptica |
 | Persistencia local | `@react-native-async-storage/async-storage` | Sesión de Firebase y presupuesto |
-| Otros | `@react-native-community/datetimepicker`, `expo-clipboard`, `expo-glass-effect` | Fechas, copiar CLABE, Liquid Glass (opcional) |
+| Otros | `@react-native-community/datetimepicker`, `expo-clipboard` | Fechas, copiar CLABE |
 | Build | **EAS Build** (`eas.json`: development / preview / production) | Dev client y binarios de tienda |
 
 ---
@@ -155,10 +157,11 @@ app/
     ├── new.tsx               # Alta (catálogo → formulario) y edición (?id=)
     └── [id].tsx              # Detalle
 src/
-├── theme/tokens.ts           # Colores claro/oscuro, gradientes, radios, tipografía, sombras
+├── theme/tokens.ts           # Colores, escenas de fondo, paleta vívida, radios, tipografía (SF Pro)
+├── theme/motion.ts           # Springs, entradas, layout de listas y háptica
 ├── config/ui.ts              # USE_NATIVE_TABS
 ├── components/
-│   ├── ui/                   # Design system (primitives, charts, NotchCard, SubscriptionTile)
+│   ├── ui/                   # Design system: primitives, charts, glass, chrome (TopBar/scroll), NotchCard, SubscriptionTile
 │   ├── FloatingTabBar.tsx
 │   ├── BudgetModal.tsx
 │   ├── CatalogBrowser.tsx
@@ -299,49 +302,82 @@ El punto más delicado de una app de suscripciones. Reglas:
 
 ---
 
-## 6. Diseño: Subly Design System
+## 6. Diseño: Subly Glass
 
-De las referencias se tomó la **forma** (tarjetas soft con radios grandes, tipografía muy pesada, pills de filtro, tarjeta con muesca, tab bar flotante con botón central), no los colores. La paleta es **blanco y negro**.
+Tres referencias, tres cosas tomadas de cada una:
+
+| Referencia | Qué se tomó |
+|---|---|
+| App de autos (Favourite) | Forma: tarjetas soft con radios grandes, tipografía pesada, pills de filtro y la **tarjeta con muesca** |
+| Paleta blanco y negro | UI en **ink**: texto, botones, pills y tab bar en negro (blanco en oscuro) |
+| **Revolut** | **Fondos con degradado vivo por pantalla, superficies de vidrio (Liquid Glass), tab bar compacta que se minimiza, saldo centrado, acciones rápidas redondas y la fluidez de las animaciones** |
 
 ### 6.1 Tokens (`src/theme/tokens.ts`)
 
 | Token | Claro | Oscuro | Uso |
 |---|---|---|---|
-| `bg` | `#FFFFFF` | `#000000` | Fondo de pantalla |
-| `surface` | `#F4F4F5` | `#141416` | Tarjetas "soft" |
-| `text` / `subtext` / `muted` | `#09090B` / `#71717A` / `#A1A1AA` | `#FAFAFA` / `#A1A1AA` / `#71717A` | Jerarquía de texto |
-| `ink` | `#09090B` (negro) | `#FAFAFA` (blanco) | Énfasis: pills activas, tab bar, botones principales, héroes |
-| `onInk` | blanco | negro | Texto e iconos sobre `ink` |
-| `gradient` | `#09090B → #3F3F46` | `#FFFFFF → #D4D4D8` | Degradado sutil de profundidad en héroes y botones |
-| `chart` | 6 grises de negro a gris claro | 6 grises de blanco a grafito | Series de gráficas (dona por categoría) |
-| `urgent` / `urgentSoft` | `#DC2626` / `#FDECEC` | `#F87171` / `#2A1215` | **Único color funcional:** cobro en ≤ 3 días o presupuesto excedido |
+| `scenes.*` | Pastel (lavanda, cielo, rosa) → `#F7F7FB` | Profundo (azul eléctrico, índigo, violeta) → `#05050C` | Degradado de fondo de cada pantalla (`home`, `calendar`, `stats`, `profile`, `neutral`) con dos fases que se funden |
+| `surface` / `glass` | blanco 62–72 % | blanco 8–10 % | Tarjetas y vidrio translúcidos sobre el degradado |
+| `glassBorder` / `cardBorder` | blanco 90 % | blanco 10–14 % | Borde fino que "recorta" el vidrio |
+| `ink` / `onInk` | negro / blanco | blanco / negro | Énfasis: pill activa, botón "+", botones principales |
+| `text` / `subtext` / `muted` | `#09090B` / `#5B5B66` / `#8E8E99` | blanco 100 / 68 / 45 % | Jerarquía de texto |
+| `vivid` | 8 colores (índigo, rosa, ámbar, verde, cian, violeta, naranja, lima) | versiones más claras | **Color dinámico de datos**: categorías, métodos de pago |
+| `chartLine` / `chartGood` / `chartWarn` / `chartBad` | degradados | degradados | Trazos de gráficas y medidores según el nivel (verde → ámbar → rojo) |
+| `urgent` | `#DC2626` | `#F87171` | Cobro en ≤ 3 días o presupuesto excedido |
 
-- **Modo oscuro = paleta invertida:** lo negro pasa a blanco y viceversa (la tab bar, los héroes y las pills activas se vuelven blancos).
-- **Logos de marca** conservan su color (son contenido, no UI) sobre un círculo neutro con borde fino.
-- Los servicios sin logo usan una letra sobre un tono de gris elegido en el formulario.
-- **Radios:** `xs 8 · sm 12 · md 16 · lg 22 · xl 28 · pill`.
-- **Tipografía:** fuente del sistema (SF Pro / Roboto) con pesos 800–900 para cifras y títulos. Cifras grandes con centavos más pequeños.
-- **Sombras:** `floatShadow()` neutra y suave para elementos flotantes.
+**Color dinámico:** además de la paleta, `brandColor()` (`src/utils/brandIcons.tsx`) toma el color real de la marca de cada suscripción (Netflix rojo, Spotify verde, Xbox verde, Claude naranja…) y lo usa en las barras del ranking, en los puntos del calendario, en el progreso de los tiles y para **teñir el fondo del Detalle**.
+
+### Tipografía: una sola familia
+
+`fontFamily` en tokens: **SF Pro** en iOS (`System`; SF Pro Text/Display según el tamaño), la sans del sistema en Android y la pila `-apple-system, "SF Pro", …, Arial` en web. Todas las cifras usan `tabular-nums` para que no "bailen" al animarse.
+
+> SF Pro no se puede incluir en el binario de Android por licencia (solo plataformas Apple). Si se quiere exactamente la misma letra en Android, la alternativa libre más parecida es **Inter** (vía `@expo-google-fonts/inter`).
+
+### Vidrio (`src/components/ui/glass.tsx`)
+
+- `<Glass>`: en **iOS 26+** usa `GlassView` (Liquid Glass real, interactivo); en iOS anterior, Android (`blurMethod="dimezisBlurViewSdk31Plus"`) y web usa `BlurView` + capa translúcida + borde fino.
+- `<ScreenBackground scene tint>`: dos degradados que se funden en loop de 9 s + un "orbe" de luz radial que flota. `tint` tiñe la escena (se usa con el color de marca en Detalle).
 
 ### Gráficas: sólo donde aportan
 
-| Pantalla | ¿Gráfica? | Por qué |
+| Pantalla | ¿Gráfica? | Detalle |
 |---|---|---|
-| **Estadísticas** | Sí: curva de 12 meses, 2 medidores (presupuesto, mensuales vs anuales), dona por categoría, barras del top 5 | Es la pantalla de análisis: comparar y ver tendencias |
-| **Inicio** | No: tarjeta negra con el gasto, barra de presupuesto y 3 cifras (semana / mes / año) | Aquí se busca el dato rápido; una curva no dice más que tres números |
-| **Detalle** | No: una barra de progreso hasta el siguiente cobro y 3 cifras (mes / año / % del gasto) | Una sola suscripción no tiene tendencia que graficar |
-| **Calendario** | No | El propio calendario es la visualización |
+| **Estadísticas** | Sí, a color | Curva de 12 meses con trazo índigo → rosa que **se dibuja**; medidores con degradado según el nivel (barrido animado); dona por categoría con segmentos que se despliegan; ranking con **el color de cada marca**; barra apilada por método de pago |
+| **Inicio** | No | Saldo centrado grande, barra de presupuesto (verde/ámbar/rojo) y 3 cifras que cuentan hacia su valor |
+| **Detalle** | No | Barra de progreso al siguiente cobro con el color de la marca y 3 cifras clave |
+| **Calendario** | No | El calendario es la visualización; los puntos usan el color de la marca |
+
+### 6.1b Movimiento (`src/theme/motion.ts`)
+
+| Qué | Cómo |
+|---|---|
+| **Springs únicos** | `spring.snappy` (press), `spring.smooth` (tabs, chrome), `spring.gentle` (entradas). Todo corre en el hilo de UI con Reanimated 4 |
+| **Entrada escalonada** | `enter(i)`: `FadeInDown` con spring y 55 ms de retraso por sección |
+| **Listas que se reacomodan** | `listLayout` (`LinearTransition.springify()`) + `FadeIn/FadeOut` al filtrar o buscar |
+| **Press** | `PressableScale`: escala + opacidad con spring y **háptica de selección** |
+| **Tab bar** | Indicador que se desliza con spring; al hacer scroll hacia abajo **se minimiza** (etiquetas fuera, altura 62 → 48) y reaparece al subir (`useScreenScroll` + `ChromeProvider`) |
+| **Barra superior** | Transparente arriba; al hacer scroll aparece el blur y el título compacto hace fade-in; el título grande se encoge con la inercia del scroll |
+| **Parallax** | El saldo de Inicio se desvanece, baja y se encoge al hacer scroll (como el saldo de Revolut) |
+| **Números** | `AnimatedNumber`: cuenta desde el valor anterior con ease-out |
+| **Gráficas** | Línea con `strokeDashoffset`, medidores con barrido, dona con despliegue y barras que crecen (en web se muestran ya dibujadas) |
+| **Fondo** | Degradados que se funden y orbe que flota, sin bloquear el hilo de JS |
+| **Transiciones** | Tabs con `animation: 'shift'`; Stack `ios_from_right`; alta como modal `slide_from_bottom`; día del calendario con `ZoomIn` |
+| **Háptica** | Selección (tabs, pills, días), impacto (botón "+", guardar) y éxito (guardado / eliminado) |
+| **Skeletons** | Pulso suave mientras Firestore responde |
 
 ### 6.2 Componentes
 
 | Componente | Descripción |
 |---|---|
-| `NotchCard` | Tarjeta con "mordida" cóncava arriba a la derecha dibujada en SVG, donde vive un círculo negro (días restantes, editar). Patrón de la referencia del corazón. |
-| `FloatingTabBar` | Píldora negra (blanca en oscuro), iconos outline invertidos, **círculo que se desliza con spring** a la pestaña activa y **FAB diamante** con contorno para agregar. |
-| `FilterPills` | Pills estilo "All / New Car / Used Car": activa rellena en negro, inactivas con contorno. |
-| `AreaChart` | Curva suave (Catmull-Rom → Bézier) con relleno degradado y punto resaltado. |
-| `Gauge` | Arco de 270° con perilla, para porcentajes (presupuesto, progreso del ciclo). |
-| `Donut` | Dona por categorías con separación entre segmentos. |
+| `NotchCard` | Tarjeta con "mordida" cóncava arriba a la derecha dibujada en SVG (relleno de vidrio), donde vive un círculo ink (días restantes, editar). |
+| `FloatingTabBar` | Píldora de **vidrio** con 4 pestañas (ícono + etiqueta), **indicador que se desliza** con spring, botón **"+" redondo** aparte y **minimizado al hacer scroll**. |
+| `TopBar` / `LargeTitle` / `useScreenScroll` | Barra superior de vidrio que aparece con el scroll, título grande que se encoge y handler que alimenta a la tab bar. |
+| `Glass` / `ScreenBackground` | Vidrio (Liquid Glass o blur) y fondo con degradado vivo. |
+| `AnimatedNumber` / `Skeleton` / `ProgressBar` | Cifra que cuenta, placeholder con pulso y barra animada (sólida o degradado). |
+| `FilterPills` | Pills estilo "All / New Car / Used Car": activa en ink, inactivas con contorno. |
+| `AreaChart` | Curva suave (Catmull-Rom → Bézier) con trazo degradado de color que se dibuja, relleno y punto resaltado. |
+| `Gauge` | Arco de 270° con trazo degradado y perilla que hace barrido animado. |
+| `Donut` | Dona por categorías a color con puntas redondeadas que se despliega. |
 | `SubscriptionRow` / `UpcomingTile` / `FeaturedSubscriptionCard` | Fila de lista con logo circular, tile del carrusel con barra de progreso del ciclo, tarjeta destacada con muesca. |
 | `GradientButton`, `GradientCircle`, `IconButton`, `SearchField`, `Tag`, `SectionHeader`, `ScreenHeader`, `EmptyState`, `PressableScale` | Primitivas. `PressableScale` da micro-animación de escala al presionar. |
 
@@ -349,15 +385,16 @@ De las referencias se tomó la **forma** (tarjetas soft con radios grandes, tipo
 
 1. **Lo urgente primero:** Inicio abre con el gasto del mes, el próximo cobro destacado (con cuenta regresiva) y el carrusel de los próximos 14 días.
 2. **Una acción principal siempre a la mano:** FAB central en todas las pestañas.
-3. **El color significa algo:** todo es blanco/negro/gris; el rojo aparece únicamente para cobros ≤ 3 días o presupuesto excedido.
+3. **El color significa algo:** la UI es blanco/negro; el color aparece en fondos (ambiente), en datos (gráficas, marcas, categorías) y el rojo sólo para urgencias.
 4. **Números legibles:** cifras grandes, centavos pequeños, formato `es-MX`.
 5. **Buscar y filtrar donde está la lista:** búsqueda + pills Todas/Mensuales/Anuales en Inicio.
-6. **Modo oscuro** con la paleta invertida y grises propios para superficies y separadores.
-7. **Accesibilidad:** roles y labels en botones y tabs; targets ≥ 44 pt.
+6. **Modo oscuro** con fondos profundos estilo Revolut y vidrio oscuro; no es un simple invert.
+7. **Movimiento con propósito:** todo lo que cambia se anima (nada "salta"), con springs cortos y háptica; los datos entran con coreografía.
+8. **Accesibilidad:** roles y labels en botones y tabs; targets ≥ 44 pt.
 
 ### 6.4 Tab bar nativa (opcional)
 
-`src/config/ui.ts → USE_NATIVE_TABS = true` usa las `NativeTabs` de expo-router en dev build (UITabBar real con **Liquid Glass en iOS 26**, minimiza al hacer scroll). Se pierde el FAB y el gradiente; la acción de agregar sigue disponible desde Inicio.
+`src/config/ui.ts → USE_NATIVE_TABS = true` usa las `NativeTabs` de expo-router en dev build (UITabBar del sistema). La tab bar propia ya usa Liquid Glass real en iOS 26 y se minimiza con el scroll, así que la opción nativa sólo conviene si se quiere el comportamiento 100 % del sistema (se pierde el botón "+").
 
 ---
 
@@ -366,18 +403,28 @@ De las referencias se tomó la **forma** (tarjetas soft con radios grandes, tipo
 | Pantalla | Qué hace |
 |---|---|
 | **Login** | Google, Apple (iOS) y email/contraseña (registro, login, recuperar contraseña). Errores de Firebase traducidos. |
-| **Inicio** | Saludo, búsqueda, tarjeta negra con gasto mensual y barra de presupuesto (editable), 3 cifras (cobros reales de esta semana, este mes y al año), próximo cobro en `NotchCard`, carrusel de próximos 14 días, lista filtrable y acceso al catálogo. |
+| **Inicio** | Barra superior de vidrio (avatar → Perfil, buscador, campana con aviso de urgentes); saldo mensual centrado que cuenta, chip de presupuesto y barra de nivel; 4 acciones rápidas redondas (Agregar, Calendario, Presupuesto, Explorar); 3 cifras; próximo cobro en `NotchCard`; carrusel de 14 días; lista filtrable que se reacomoda con animación. |
 | **Calendario** | Vista semana o mes (lunes primero), puntos de color por cobro, total del mes, botón "Hoy", cobros del día seleccionado y resto del mes. Respeta recurrencia y fin de mes. |
 | **FAB (+)** | Abre el alta: primero el catálogo (buscar, filtrar por categoría, elegir plan) o "Personalizada". |
 | **Alta / edición** | Vista previa en vivo, precio grande en MXN, ciclo (muestra el equivalente mensual si es anual), fecha, categoría, color, recordatorio, método de pago, tarjeta/CLABE y notas. Al editar, reprograma la notificación. |
-| **Detalle** | Tarjeta con muesca (botón editar), barra de progreso al siguiente cobro, cifras al mes / al año / % de tu gasto, **pagado aproximado desde que la agregaste**, detalles, tarjeta vinculada (copiar CLABE) y eliminar. |
-| **Estadísticas** | Gasto anual con gráfica de 12 meses y mes más caro, gauges de presupuesto y mensuales vs anuales, dona por categoría, top 5 más caras, tips de ahorro (plan anual, duplicados por categoría, presupuesto excedido) y gasto por método de pago. |
+| **Detalle** | Fondo teñido con el color de la marca; tarjeta con muesca (editar); barra al siguiente cobro; cifras al mes / al año / % de tu gasto; **pagado aproximado**; detalles; tarjeta vinculada (copiar CLABE); eliminar con háptica de éxito. |
+| **Estadísticas** | Gasto anual que cuenta + curva de 12 meses a color con mes más caro; medidores de presupuesto (verde/ámbar/rojo) y mensuales vs anuales; dona por categoría con barras por categoría; top 5 con colores de marca; barra apilada por método de pago; tips de ahorro con íconos a color. |
 | **Perfil** | Usuario y proveedor de login, stats, tarjetas/CLABE (agregar, ordenar, eliminar, copiar), ajustes (estado **real** del permiso de notificaciones con acceso a Ajustes, presupuesto, moneda, apariencia) y cerrar sesión. |
 | **Explorar catálogo** | Misma experiencia del paso 1 del alta, accesible desde Inicio. |
 
 ---
 
-## 8. Qué cambió en el rediseño 2.0
+## 8. Qué cambió
+
+### 3.0 — Subly Glass
+
+- Fondos con degradado vivo por pantalla y superficies de vidrio (Liquid Glass en iOS 26, blur en el resto).
+- Tab bar de vidrio con indicador deslizante, botón "+" aparte y minimizado con el scroll; barra superior con blur progresivo; títulos grandes que se encogen.
+- Sistema de movimiento con Reanimated 4 (springs, entradas escalonadas, listas que se reacomodan, parallax, números que cuentan, gráficas que se dibujan) y háptica (`expo-haptics`).
+- Estadísticas a color: paleta vívida por categoría, degradados según nivel y colores de marca dinámicos.
+- Una sola familia tipográfica (SF Pro) con cifras tabulares.
+
+### 2.x — Rediseño y paleta blanco y negro
 
 **Diseño**
 - Nuevo design system (`src/theme/tokens.ts` + `src/components/ui/`) y rediseño de **todas** las pantallas.
@@ -423,9 +470,9 @@ Priorizado por impacto / esfuerzo. 🟢 rápido · 🟡 medio · 🔴 grande.
 
 ### 10.1 Quick wins 🟢
 
-- **Haptics** (`expo-haptics`) al presionar tabs, FAB, pills y al guardar.
-- **Animaciones con Reanimated 4** (ya instalado): entrada escalonada de listas, contador animado del gasto, shared element del logo lista → detalle.
-- **Pull-to-refresh + skeleton loaders** mientras Firestore responde.
+- **Shared element transition** del logo lista → detalle (Reanimated `sharedTransitionTag`).
+- **Pull-to-refresh** con animación propia.
+- **Gesto de arrastre** en la dona/curva para ver el valor de cada mes (Gesture Handler + Reanimated).
 - **Recordatorio configurable**: 1, 3 o 7 días antes y hora preferida (guardado por suscripción).
 - **Swipe actions** en la lista: pausar, editar, eliminar.
 - **Estado "pausada"** (sin borrar historial) y estado **"prueba gratis"** con fecha de fin.
@@ -473,7 +520,7 @@ Priorizado por impacto / esfuerzo. 🟢 rápido · 🟡 medio · 🔴 grande.
 - **CI/CD**: GitHub Actions con `tsc`, lint y tests; **EAS Update** para OTA; **EAS Workflows** para builds automáticos por tag.
 - **Observabilidad**: Sentry (`@sentry/react-native`) para crashes y performance; analytics de eventos clave (alta, cancelación, trial).
 - **i18n** (`expo-localization` + `i18next`) si se quiere salir de México.
-- **Fuente de marca**: cargar una geométrica (p. ej. Plus Jakarta Sans u Outfit vía `@expo-google-fonts`) en `type` para acercarse aún más a la referencia.
+- **Misma fuente en Android**: si se quiere idéntica a iOS, empaquetar Inter (libre y muy parecida a SF Pro) sólo para Android.
 
 ---
 

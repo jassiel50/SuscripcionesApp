@@ -1,14 +1,19 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  Animated, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
-  type PressableProps, type StyleProp, type TextInputProps, type ViewStyle,
+  Pressable, ScrollView, StyleSheet, Text, TextInput, View,
+  type PressableProps, type StyleProp, type TextInputProps, type TextStyle, type ViewStyle,
 } from 'react-native';
+import Animated, {
+  Easing, useAnimatedStyle, useSharedValue, withRepeat, withSpring, withTiming,
+} from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../hooks/useTheme';
 import { floatShadow, radius, spacing, type } from '../../theme/tokens';
 import { nativeTabsActive } from '../../config/ui';
+import { spring, tapHaptic } from '../../theme/motion';
+import { Glass } from './glass';
 
 export type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -17,26 +22,74 @@ export type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 /** Espacio inferior que debe dejar un ScrollView para no quedar bajo la tab bar flotante. */
 export function useTabBarSpace(extra = 24): number {
   const insets = useSafeAreaInsets();
-  return nativeTabsActive ? extra : insets.bottom + 92 + extra;
+  return nativeTabsActive ? extra : insets.bottom + 96 + extra;
 }
 
-// ── PressableScale: feedback táctil con micro-animación ─────────────────────
+// ── PressableScale: feedback táctil con spring (UI thread) + háptica ───────
 
-type PressableScaleProps = PressableProps & { style?: StyleProp<ViewStyle>; scaleTo?: number; children?: React.ReactNode };
+type PressableScaleProps = PressableProps & {
+  style?: StyleProp<ViewStyle>; scaleTo?: number; children?: React.ReactNode; haptic?: boolean;
+};
 
-export function PressableScale({ style, scaleTo = 0.97, children, ...rest }: PressableScaleProps) {
-  const scale = useRef(new Animated.Value(1)).current;
-  const animate = (to: number) =>
-    Animated.spring(scale, { toValue: to, useNativeDriver: true, speed: 40, bounciness: 6 }).start();
+export function PressableScale({ style, scaleTo = 0.96, children, haptic = true, ...rest }: PressableScaleProps) {
+  const pressed = useSharedValue(0);
+  const anim = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 - (1 - scaleTo) * pressed.value }],
+    opacity: 1 - 0.08 * pressed.value,
+  }));
   return (
     <Pressable
       {...rest}
-      onPressIn={e => { animate(scaleTo); rest.onPressIn?.(e); }}
-      onPressOut={e => { animate(1); rest.onPressOut?.(e); }}
+      onPressIn={e => { pressed.value = withSpring(1, spring.snappy); rest.onPressIn?.(e); }}
+      onPressOut={e => { pressed.value = withSpring(0, spring.snappy); rest.onPressOut?.(e); }}
+      onPress={e => { if (haptic) tapHaptic(); rest.onPress?.(e); }}
     >
-      <Animated.View style={[style, { transform: [{ scale }] }]}>{children}</Animated.View>
+      <Animated.View style={[style, anim]}>{children}</Animated.View>
     </Pressable>
   );
+}
+
+// ── Número animado (cuenta hacia el valor nuevo) ───────────────────────────
+
+/**
+ * Anima un número de su valor anterior al nuevo con ease-out (~700 ms).
+ * Usa cifras tabulares para que el ancho no "brinque" mientras cuenta.
+ */
+export function AnimatedNumber({
+  value, format, style, duration = 800,
+}: {
+  value: number; format: (n: number) => string; style?: StyleProp<TextStyle>; duration?: number;
+}) {
+  const [shown, setShown] = useState(0);
+  const from = useRef(0);
+  useEffect(() => {
+    const start = from.current;
+    const t0 = Date.now();
+    let raf = 0;
+    const tick = () => {
+      const t = Math.min(1, (Date.now() - t0) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      const v = start + (value - start) * eased;
+      setShown(v);
+      if (t < 1) raf = requestAnimationFrame(tick);
+      else from.current = value;
+    };
+    raf = requestAnimationFrame(tick);
+    return () => { cancelAnimationFrame(raf); from.current = value; };
+  }, [value, duration]);
+  return <Text style={[{ fontVariant: ['tabular-nums'] }, style]}>{format(shown)}</Text>;
+}
+
+// ── Skeleton con shimmer ────────────────────────────────────────────────────
+
+export function Skeleton({ width, height, radius: r = 12, style }: { width: number | `${number}%`; height: number; radius?: number; style?: StyleProp<ViewStyle> }) {
+  const { colors } = useTheme();
+  const pulse = useSharedValue(0);
+  useEffect(() => {
+    pulse.value = withRepeat(withTiming(1, { duration: 900, easing: Easing.inOut(Easing.quad) }), -1, true);
+  }, [pulse]);
+  const anim = useAnimatedStyle(() => ({ opacity: 0.45 + 0.4 * pulse.value }));
+  return <Animated.View style={[{ width, height, borderRadius: r, backgroundColor: colors.surface }, anim, style]} />;
 }
 
 // ── Gradientes ──────────────────────────────────────────────────────────────
@@ -164,17 +217,21 @@ export function SectionHeader({ title, action, onAction }: { title: string; acti
 }
 
 export function IconButton({
-  icon, onPress, badge, accessibilityLabel, tone = 'plain',
+  icon, onPress, badge, accessibilityLabel, glass = true, size = 44,
 }: {
   icon: IoniconName; onPress?: () => void; badge?: boolean; accessibilityLabel?: string;
-  tone?: 'plain' | 'soft';
+  glass?: boolean; size?: number;
 }) {
   const { colors } = useTheme();
+  const inner = (
+    <View style={[p.iconBtn, { width: size, height: size, borderRadius: size / 2 }]}>
+      <Ionicons name={icon} size={Math.round(size * 0.5)} color={colors.text} />
+      {badge && <View style={[p.iconBadge, { backgroundColor: colors.urgent, borderColor: colors.glassBorder }]} />}
+    </View>
+  );
   return (
-    <PressableScale onPress={onPress} scaleTo={0.9} accessibilityRole="button" accessibilityLabel={accessibilityLabel}
-      style={[p.iconBtn, tone === 'soft' && { backgroundColor: colors.surface }]}>
-      <Ionicons name={icon} size={24} color={colors.text} />
-      {badge && <View style={[p.iconBadge, { backgroundColor: colors.urgent, borderColor: colors.bg }]} />}
+    <PressableScale onPress={onPress} scaleTo={0.88} accessibilityRole="button" accessibilityLabel={accessibilityLabel}>
+      {glass ? <Glass radius={size / 2} interactive>{inner}</Glass> : inner}
     </PressableScale>
   );
 }
@@ -195,26 +252,28 @@ export function Tag({ label, color, solid = false }: { label: string; color?: st
 
 // ── Search field ────────────────────────────────────────────────────────────
 
-export function SearchField(props: TextInputProps & { onClear?: () => void }) {
+export function SearchField(props: TextInputProps & { onClear?: () => void; compact?: boolean }) {
   const { colors } = useTheme();
-  const { onClear, value, style, ...rest } = props;
+  const { onClear, value, style, compact, ...rest } = props;
   return (
-    <View style={[p.search, { backgroundColor: colors.surface }]}>
-      <Ionicons name="search" size={18} color={colors.subtext} />
-      <TextInput
-        {...rest}
-        value={value}
-        placeholderTextColor={colors.muted}
-        style={[p.searchInput, { color: colors.text }, style]}
-        returnKeyType="search"
-        clearButtonMode="never"
-      />
-      {!!value && onClear && (
-        <Pressable onPress={onClear} hitSlop={10}>
-          <Ionicons name="close-circle" size={18} color={colors.muted} />
-        </Pressable>
-      )}
-    </View>
+    <Glass radius={compact ? 22 : radius.md} style={compact ? { flex: 1 } : { marginHorizontal: spacing.screen }}>
+      <View style={[p.search, compact && { height: 44, paddingHorizontal: 14 }]}>
+        <Ionicons name="search" size={18} color={colors.subtext} />
+        <TextInput
+          {...rest}
+          value={value}
+          placeholderTextColor={colors.muted}
+          style={[p.searchInput, { color: colors.text }, style]}
+          returnKeyType="search"
+          clearButtonMode="never"
+        />
+        {!!value && onClear && (
+          <Pressable onPress={onClear} hitSlop={10}>
+            <Ionicons name="close-circle" size={18} color={colors.muted} />
+          </Pressable>
+        )}
+      </View>
+    </Glass>
   );
 }
 
@@ -263,13 +322,13 @@ const p = StyleSheet.create({
   headerSide: { width: 48 },
   section: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.screen, marginTop: 28, marginBottom: 14 },
 
-  iconBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  iconBtn: { alignItems: 'center', justifyContent: 'center' },
   iconBadge: { position: 'absolute', top: 9, right: 10, width: 10, height: 10, borderRadius: 5, borderWidth: 2 },
 
   tag: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.xs },
   tagText: { fontSize: 12, fontWeight: '800', letterSpacing: 0.1 },
 
-  search: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: spacing.screen, borderRadius: radius.md, paddingHorizontal: 16, height: 50 },
+  search: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, height: 50 },
   searchInput: { flex: 1, fontSize: 16, fontWeight: '500', paddingVertical: 0 },
 
   empty: { alignItems: 'center', paddingHorizontal: 36, paddingVertical: 32, gap: 12 },
