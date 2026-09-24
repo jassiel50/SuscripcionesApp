@@ -8,7 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSubscriptions } from '../../src/hooks/useSubscriptions';
 import { useTheme } from '../../src/hooks/useTheme';
 import {
-  FilterPills, Glass, LargeTitle, PressableScale, ScreenBackground, SectionHeader, SubscriptionRow, TOP_BAR_H, TopBar,
+  FilterPills, Glass, PressableScale, ScreenBackground, SectionHeader, SubscriptionRow, TopBar,
   useScreenScroll, useTabBarSpace,
 } from '../../src/components/ui';
 import { brandColor } from '../../src/utils/brandIcons';
@@ -152,25 +152,24 @@ export default function CalendarScreen() {
   return (
     <View style={s.root}>
       <ScreenBackground scene="calendar" />
-      <TopBar scrollY={scrollY} title="Calendario" />
+      <TopBar
+        scrollY={scrollY}
+        title="Calendario"
+        right={
+          <PressableScale onPress={goToday} scaleTo={0.92} accessibilityLabel="Ir a hoy">
+            <Glass radius={999} interactive>
+              <Text style={[s.todayText, { color: colors.text }]}>Hoy</Text>
+            </Glass>
+          </PressableScale>
+        }
+      />
 
       <Animated.ScrollView
         onScroll={onScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingTop: insets.top + TOP_BAR_H - 12, paddingBottom: bottom }}
+        contentContainerStyle={{ paddingTop: insets.top + 16, paddingBottom: bottom }}
       >
-        <LargeTitle
-          scrollY={scrollY}
-          title="Calendario"
-          right={
-            <PressableScale onPress={goToday} scaleTo={0.92} accessibilityLabel="Ir a hoy">
-              <Glass radius={999} interactive>
-                <Text style={[s.todayText, { color: colors.text }]}>Hoy</Text>
-              </Glass>
-            </PressableScale>
-          }
-        />
         <FilterPills<ViewMode>
           scroll={false}
           value={mode}

@@ -19,7 +19,7 @@ import { usePaymentCards } from '../../src/hooks/usePaymentCards';
 import BudgetModal from '../../src/components/BudgetModal';
 import CardPickerModal, { BrandSvgIcon, CardChip, brandIconBg } from '../../src/components/CardPickerModal';
 import {
-  LargeTitle, ScreenBackground, SectionHeader, TOP_BAR_H, TopBar, useScreenScroll, useTabBarSpace, type IoniconName,
+  ScreenBackground, SectionHeader, TopBar, useScreenScroll, useTabBarSpace, type IoniconName,
 } from '../../src/components/ui';
 import { enter } from '../../src/theme/motion';
 import { moneyShort } from '../../src/utils/format';
@@ -117,9 +117,8 @@ export default function ProfileScreen() {
         onScroll={onScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingTop: insets.top + TOP_BAR_H - 12, paddingBottom: bottom }}
+        contentContainerStyle={{ paddingTop: insets.top + 16, paddingBottom: bottom }}
       >
-        <LargeTitle scrollY={scrollY} title="Perfil" />
         {/* Tarjeta de usuario */}
         <Animated.View entering={enter(0)} style={[s.userCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
           <LinearGradient colors={colors.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.avatarRing}>

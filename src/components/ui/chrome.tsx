@@ -88,12 +88,17 @@ export function TopBar({
   return (
     <View style={[s.bar, { paddingTop: insets.top, height: insets.top + TOP_BAR_H }]} pointerEvents="box-none">
       <Animated.View style={[StyleSheet.absoluteFill, bgStyle]} pointerEvents="none">
-        <BlurView intensity={dark ? 50 : 70} tint={dark ? 'systemChromeMaterialDark' : 'systemChromeMaterialLight'} blurMethod="dimezisBlurViewSdk31Plus" style={StyleSheet.absoluteFill} />
-        {/* Sin línea divisoria: el tinte se desvanece hacia abajo para fundirse
-            con el degradado de fondo en vez de cortarlo con un borde marcado. */}
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: (insets.top + TOP_BAR_H) * 0.6 }}>
+          <BlurView intensity={dark ? 46 : 32} tint={dark ? 'systemChromeMaterialDark' : 'systemChromeMaterialLight'} blurMethod="dimezisBlurViewSdk31Plus" style={StyleSheet.absoluteFill} />
+        </View>
+        {/* Sin línea divisoria: el tinte se desvanece en 3 pasos hacia abajo
+            para que el borde inferior no se note, en vez de cortarlo con un
+            borde marcado (de más a menos difuminado, de arriba hacia abajo). */}
         <LinearGradient
-          colors={dark ? ['rgba(5,5,12,0.42)', 'rgba(5,5,12,0)'] : ['rgba(255,255,255,0.5)', 'rgba(255,255,255,0)']}
-          locations={[0.55, 1]}
+          colors={dark
+            ? ['rgba(5,5,12,0.4)', 'rgba(5,5,12,0.16)', 'rgba(5,5,12,0)']
+            : ['rgba(255,255,255,0.38)', 'rgba(255,255,255,0.14)', 'rgba(255,255,255,0)']}
+          locations={[0.32, 0.7, 1]}
           style={StyleSheet.absoluteFill}
         />
       </Animated.View>
@@ -149,40 +154,49 @@ export const STACK_BTN = 40;
  * se ve completo hasta arriba.
  */
 export function StackHeader({
-  title, onBack, right, scrollY,
+  title, onBack, right, scrollY, titleFade = true,
 }: {
   title?: string;
   /** Si se omite, no se muestra botón de regreso (p. ej. dentro de un flujo interno). */
   onBack?: () => void;
   right?: React.ReactNode;
   /**
-   * Scroll de la pantalla: si se pasa, el fondo de vidrio y el título aparecen
-   * con fade al hacer scroll (como TopBar), dejando ver el degradado completo
-   * hasta arriba cuando la pantalla está en reposo. Si se omite, se muestran
-   * siempre (p. ej. pantallas sin scroll propio).
+   * Scroll de la pantalla: si se pasa, el fondo de vidrio aparece con fade al
+   * hacer scroll (como TopBar), dejando ver el degradado completo hasta
+   * arriba cuando la pantalla está en reposo. Si se omite, el fondo nunca se
+   * muestra (p. ej. Detalle, donde no hace falta separar el título del
+   * contenido porque no hay título).
    */
   scrollY?: SharedValue<number>;
+  /** Si es `false`, el título siempre se ve (solo el fondo de vidrio hace fade). */
+  titleFade?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const { colors, dark } = useTheme();
   const barHeight = insets.top + 10 + STACK_BTN + 12;
 
   const bgStyle = useAnimatedStyle(() => ({
-    opacity: scrollY ? interpolate(scrollY.value, [0, 50], [0, 1], Extrapolation.CLAMP) : 1,
+    opacity: scrollY ? interpolate(scrollY.value, [0, 50], [0, 1], Extrapolation.CLAMP) : 0,
   }));
   const titleStyle = useAnimatedStyle(() => ({
-    opacity: scrollY ? interpolate(scrollY.value, [20, 60], [0, 1], Extrapolation.CLAMP) : 1,
+    opacity: scrollY && titleFade ? interpolate(scrollY.value, [20, 60], [0, 1], Extrapolation.CLAMP) : 1,
   }));
 
   return (
     <View style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, height: barHeight }} pointerEvents="box-none">
       {/* Fondo de vidrio: transparente en reposo (se ve el degradado completo),
-          aparece con fade al hacer scroll para separar el título del contenido. */}
+          aparece con fade al hacer scroll para separar el título del contenido.
+          El blur cubre solo la parte de arriba y el tinte se desvanece en 3
+          pasos para que el borde inferior no se note (nada de línea marcada). */}
       <Animated.View style={[StyleSheet.absoluteFill, bgStyle]} pointerEvents="none">
-        <BlurView intensity={dark ? 45 : 60} tint={dark ? 'systemChromeMaterialDark' : 'systemChromeMaterialLight'} blurMethod="dimezisBlurViewSdk31Plus" style={StyleSheet.absoluteFill} />
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: barHeight * 0.6 }}>
+          <BlurView intensity={dark ? 42 : 34} tint={dark ? 'systemChromeMaterialDark' : 'systemChromeMaterialLight'} blurMethod="dimezisBlurViewSdk31Plus" style={StyleSheet.absoluteFill} />
+        </View>
         <LinearGradient
-          colors={dark ? ['rgba(5,5,12,0.4)', 'rgba(5,5,12,0)'] : ['rgba(255,255,255,0.48)', 'rgba(255,255,255,0)']}
-          locations={[0.6, 1]}
+          colors={dark
+            ? ['rgba(5,5,12,0.38)', 'rgba(5,5,12,0.16)', 'rgba(5,5,12,0)']
+            : ['rgba(255,255,255,0.36)', 'rgba(255,255,255,0.14)', 'rgba(255,255,255,0)']}
+          locations={[0.32, 0.7, 1]}
           style={StyleSheet.absoluteFill}
         />
       </Animated.View>

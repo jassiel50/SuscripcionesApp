@@ -8,8 +8,8 @@ import { useSubscriptions } from '../../src/hooks/useSubscriptions';
 import { useTheme } from '../../src/hooks/useTheme';
 import BudgetModal from '../../src/components/BudgetModal';
 import {
-  AnimatedNumber, AreaChart, Donut, EmptyState, Gauge, LargeTitle, ProgressBar, ScreenBackground,
-  SectionHeader, TOP_BAR_H, TopBar, useScreenScroll, useTabBarSpace, type IoniconName,
+  AnimatedNumber, AreaChart, Donut, EmptyState, Gauge, ProgressBar, ScreenBackground,
+  SectionHeader, TopBar, useScreenScroll, useTabBarSpace, type IoniconName,
 } from '../../src/components/ui';
 import { SubIcon, brandColor } from '../../src/utils/brandIcons';
 import { monthlyEquivalent, MONTHS_SHORT, totalForMonth } from '../../src/utils/dates';
@@ -103,8 +103,7 @@ export default function StatisticsScreen() {
     return (
       <View style={s.root}>
         <ScreenBackground scene="stats" />
-        <View style={{ paddingTop: insets.top + 12 }}>
-          <LargeTitle scrollY={scrollY} title="Estadísticas" />
+        <View style={{ paddingTop: insets.top + 16 }}>
           <EmptyState icon="pie-chart-outline" title="Sin datos aún" body="Agrega suscripciones para ver tus gráficas y recomendaciones de ahorro." cta="Agregar suscripción" onCta={() => router.push('/subscription/new')} />
         </View>
       </View>
@@ -127,10 +126,8 @@ export default function StatisticsScreen() {
         onScroll={onScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingTop: insets.top + TOP_BAR_H - 12, paddingBottom: bottom }}
+        contentContainerStyle={{ paddingTop: insets.top + 16, paddingBottom: bottom }}
       >
-        <LargeTitle scrollY={scrollY} title="Estadísticas" />
-
         {/* Hero anual */}
         <Animated.View entering={enter(0)} style={[s.hero, card]}>
           <Text style={[s.heroLabel, { color: colors.subtext }]}>Gasto anual estimado</Text>

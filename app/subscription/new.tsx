@@ -190,7 +190,7 @@ export default function NewSubscriptionScreen() {
             setMode('form');
           }}
         />
-        <StackHeader title="Nueva suscripción" onBack={() => router.back()} scrollY={scrollY} />
+        <StackHeader title="Nueva suscripción" onBack={() => router.back()} scrollY={scrollY} titleFade={false} />
       </View>
     );
   }
@@ -201,7 +201,7 @@ export default function NewSubscriptionScreen() {
   return (
     <View style={{ flex: 1 }}>
       <ScreenBackground scene="neutral" tint={color} />
-      <StackHeader title={isEdit ? 'Editar suscripción' : 'Nueva suscripción'} onBack={() => router.back()} scrollY={scrollY} />
+      <StackHeader title={isEdit ? 'Editar suscripción' : 'Nueva suscripción'} onBack={() => router.back()} scrollY={scrollY} titleFade={false} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Animated.ScrollView
           style={{ flex: 1 }}

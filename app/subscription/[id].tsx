@@ -1,6 +1,6 @@
 import React from 'react';
 import { Alert, Platform, Pressable, StyleSheet, Text, ToastAndroid, View } from 'react-native';
-import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import * as Clipboard from 'expo-clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -38,8 +38,6 @@ export default function SubscriptionDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const headerSpace = useStackHeaderSpace();
-  const scrollY = useSharedValue(0);
-  const onScroll = useAnimatedScrollHandler({ onScroll: e => { scrollY.value = e.contentOffset.y; } });
 
   const sub = subscriptions.find(s => s.id === id) ?? null;
   const linkedCard = sub?.card_id ? cards.find(c => c.id === sub.card_id) ?? null : null;
@@ -92,12 +90,10 @@ export default function SubscriptionDetailScreen() {
   return (
     <View style={s.root}>
       <ScreenBackground scene="neutral" tint={tint} />
-      <StackHeader onBack={() => router.back()} scrollY={scrollY} />
+      <StackHeader onBack={() => router.back()} />
       <Animated.ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingTop: headerSpace + 4, paddingBottom: insets.bottom + 32 }}
-        onScroll={onScroll}
-        scrollEventThrottle={16}
       >
 
         {/* Hero con muesca */}
