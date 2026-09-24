@@ -45,8 +45,10 @@ function FloatingTabsLayout() {
         tabBar={props => <FloatingTabBar {...props} />}
         screenOptions={{
           headerShown: false,
-          // Transición entre pestañas: desplazamiento + fade (react-navigation 7)
-          animation: 'shift',
+          // Sin `animation` de transición entre pestañas: 'shift' dejaba a veces
+          // la pantalla entrante con opacidad en 0 (pantalla en blanco hasta
+          // volver a enfocarla). El cambio instantáneo es el comportamiento
+          // estándar y estable de las bottom tabs.
           sceneStyle: { backgroundColor: colors.bg },
         }}
       >

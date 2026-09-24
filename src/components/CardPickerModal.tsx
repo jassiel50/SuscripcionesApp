@@ -2,14 +2,21 @@ import React, { useState } from 'react';
 import {
   ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform,
   ScrollView, StyleSheet, Text, TextInput, ToastAndroid,
-  TouchableOpacity, View, useColorScheme,
+  View, useColorScheme,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import * as Clipboard from 'expo-clipboard';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import Animated from 'react-native-reanimated';
 import { siVisa, siMastercard } from 'simple-icons';
 import { usePaymentCards } from '../hooks/usePaymentCards';
 import { useTheme } from '../hooks/useTheme';
+import { enter, tapHaptic } from '../theme/motion';
+import { radius, spacing, type } from '../theme/tokens';
+import {
+  EmptyState, FilterPills, Glass, GradientButton, PressableScale, ScreenBackground,
+} from './ui';
 import type { CardBrand, CardKind, PaymentCard } from '../types';
 
 // ── Brand helpers ─────────────────────────────────────────────────────────────
@@ -40,14 +47,14 @@ export function cardLabel(card: PaymentCard): string {
 }
 
 // ── Brand SVG icon ────────────────────────────────────────────────────────────
-// Exported so profile.tsx can use it for the left-side card icon
+// Exported so profile.tsx puede usarlo para el ícono izquierdo de la tarjeta
 
 export function BrandSvgIcon({ brand, size }: { brand: CardBrand; size: number }) {
   const dark = useColorScheme() === 'dark';
   const meta = BRAND_META[brand];
 
   if (brand === 'mastercard') {
-    // Two overlapping circles — vivid on any background
+    // Dos círculos superpuestos — vivo sobre cualquier fondo
     const r = size * 0.37;
     const cy = size / 2;
     return (
@@ -61,10 +68,10 @@ export function BrandSvgIcon({ brand, size }: { brand: CardBrand; size: number }
 
   if (!meta.svgPath) {
     const color = dark ? '#FFFFFF' : meta.color;
-    return <Text style={{ fontSize: size * 0.42, fontWeight: '900', color }}>{meta.textFallback}</Text>;
+    return <Text style={{ fontSize: size * 0.42, fontWeight: '800', color }}>{meta.textFallback}</Text>;
   }
 
-  // Visa (and any future SVG brand): lighten in dark mode if color is too dark
+  // Visa (y cualquier marca SVG futura): se aclara en oscuro si el color es muy oscuro
   const brandLum = lum(meta.color);
   const iconColor = dark && brandLum < 0.25 ? '#FFFFFF' : meta.color;
 
@@ -75,7 +82,7 @@ export function BrandSvgIcon({ brand, size }: { brand: CardBrand; size: number }
   );
 }
 
-// Background color for the icon wrap based on dark mode
+// Color de fondo del ícono según modo oscuro
 export function brandIconBg(brand: CardBrand, dark: boolean): string {
   const meta = BRAND_META[brand];
   const brandLum = lum(meta.color);
@@ -83,7 +90,7 @@ export function brandIconBg(brand: CardBrand, dark: boolean): string {
   return meta.color + '22';
 }
 
-// ── Card chip (small display) ─────────────────────────────────────────────────
+// ── Chip de tarjeta (visualización pequeña) ────────────────────────────────────
 
 export function CardChip({ card, colors }: { card: PaymentCard; colors: ReturnType<typeof useTheme>['colors'] }) {
   const dark = useColorScheme() === 'dark';
@@ -120,15 +127,44 @@ const chip = StyleSheet.create({
   text: { fontSize: 13, fontWeight: '600' },
 });
 
-// ── Add-card form ─────────────────────────────────────────────────────────────
+// ── Encabezado del modal (vidrio, a juego con StackHeader) ─────────────────────
+
+function ModalHeader({
+  title, left, right,
+}: {
+  title: string; left: { icon: React.ComponentProps<typeof Ionicons>['name']; label: string; onPress: () => void };
+  right?: { icon: React.ComponentProps<typeof Ionicons>['name']; label: string; onPress: () => void };
+}) {
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={[h.row, { paddingTop: insets.top + 12 }]}>
+      <PressableScale onPress={() => { tapHaptic(); left.onPress(); }} scaleTo={0.88} accessibilityRole="button" accessibilityLabel={left.label}>
+        <Glass radius={20} interactive><View style={h.btn}><Ionicons name={left.icon} size={19} color={colors.text} /></View></Glass>
+      </PressableScale>
+      <Text style={[type.h3, { color: colors.text, flex: 1, textAlign: 'center' }]} numberOfLines={1}>{title}</Text>
+      {right ? (
+        <PressableScale onPress={() => { tapHaptic(); right.onPress(); }} scaleTo={0.88} accessibilityRole="button" accessibilityLabel={right.label}>
+          <Glass radius={20} interactive><View style={h.btn}><Ionicons name={right.icon} size={19} color={colors.text} /></View></Glass>
+        </PressableScale>
+      ) : <View style={h.btn} />}
+    </View>
+  );
+}
+
+const h = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: spacing.screen - 4, paddingBottom: 12 },
+  btn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+});
+
+// ── Formulario para agregar tarjeta ────────────────────────────────────────────
 
 type AddFormProps = {
   onSave: (card: Omit<PaymentCard, 'id' | 'created_at'>) => Promise<void>;
-  onCancel: () => void;
   colors: ReturnType<typeof useTheme>['colors'];
 };
 
-function AddCardForm({ onSave, onCancel, colors }: AddFormProps) {
+function AddCardForm({ onSave, colors }: AddFormProps) {
   const [kind,   setKind]   = useState<CardKind>('credit');
   const [brand,  setBrand]  = useState<CardBrand>('visa');
   const [alias,  setAlias]  = useState('');
@@ -165,72 +201,53 @@ function AddCardForm({ onSave, onCancel, colors }: AddFormProps) {
     setSaving(false);
   };
 
-  const f = addStyles(colors);
-
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
 
-        {/* Kind */}
-        <Text style={f.label}>TIPO</Text>
-        <View style={f.segRow}>
-          {(['credit', 'debit', 'clabe'] as CardKind[]).map(k => (
-            <TouchableOpacity
-              key={k}
-              style={[f.seg, kind === k && { backgroundColor: colors.vivid[0] }]}
-              onPress={() => setKind(k)}
-            >
-              <Text style={[f.segText, { color: kind === k ? '#fff' : colors.subtext }]}>
-                {k === 'credit' ? 'Crédito' : k === 'debit' ? 'Débito' : 'CLABE'}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        <Text style={[f.label, { color: colors.text }]}>Tipo</Text>
+        <FilterPills<CardKind>
+          value={kind}
+          onChange={setKind}
+          options={[{ key: 'credit', label: 'Crédito' }, { key: 'debit', label: 'Débito' }, { key: 'clabe', label: 'CLABE' }]}
+        />
 
-        {/* Brand */}
         {!isClabe && (
           <>
-            <Text style={f.label}>MARCA</Text>
+            <Text style={[f.label, { color: colors.text }]}>Marca</Text>
             <View style={f.segRow}>
               {(Object.keys(BRAND_META) as CardBrand[]).map(b => {
                 const meta = BRAND_META[b];
+                const active = brand === b;
                 return (
-                  <TouchableOpacity
-                    key={b}
-                    style={[f.seg, brand === b && { backgroundColor: meta.color }]}
-                    onPress={() => setBrand(b)}
-                  >
-                    <Text style={[f.segText, { color: brand === b ? '#fff' : colors.subtext }]}>
-                      {meta.label}
-                    </Text>
-                  </TouchableOpacity>
+                  <PressableScale key={b} onPress={() => setBrand(b)} style={[f.seg, { backgroundColor: active ? meta.color : colors.surface }]}>
+                    <Text style={[f.segText, { color: active ? '#fff' : colors.subtext }]}>{meta.label}</Text>
+                  </PressableScale>
                 );
               })}
             </View>
           </>
         )}
 
-        {/* Alias */}
-        <Text style={f.label}>ALIAS</Text>
-        <View style={[f.inputRow, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-          <Ionicons name="pricetag-outline" size={16} color={colors.subtext} />
+        <Text style={[f.label, { color: colors.text }]}>Alias</Text>
+        <View style={[f.inputRow, { backgroundColor: colors.surface }]}>
+          <Ionicons name="pricetag-outline" size={18} color={colors.subtext} />
           <TextInput
             style={[f.input, { color: colors.text }]}
             placeholder={isClabe ? 'Mi CLABE Banamex' : 'Mi Visa BBVA'}
-            placeholderTextColor={colors.subtext}
+            placeholderTextColor={colors.muted}
             value={alias}
             onChangeText={setAlias}
           />
         </View>
 
-        {/* Digits / CLABE */}
-        <Text style={f.label}>{isClabe ? 'CLABE (18 DÍGITOS)' : 'ÚLTIMOS 4 O 6 DÍGITOS'}</Text>
-        <View style={[f.inputRow, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-          <Ionicons name={isClabe ? 'swap-horizontal-outline' : 'card-outline'} size={16} color={colors.subtext} />
+        <Text style={[f.label, { color: colors.text }]}>{isClabe ? 'CLABE (18 dígitos)' : 'Últimos 4 o 6 dígitos'}</Text>
+        <View style={[f.inputRow, { backgroundColor: colors.surface }]}>
+          <Ionicons name={isClabe ? 'swap-horizontal-outline' : 'card-outline'} size={18} color={colors.subtext} />
           <TextInput
             style={[f.input, { color: colors.text, letterSpacing: isClabe ? 1.5 : 3 }]}
             placeholder={isClabe ? '••••••••••••••••••' : '••••'}
-            placeholderTextColor={colors.subtext}
+            placeholderTextColor={colors.muted}
             value={isClabe ? clabe : digits}
             onChangeText={isClabe ? setClabe : setDigits}
             keyboardType="number-pad"
@@ -243,66 +260,47 @@ function AddCardForm({ onSave, onCancel, colors }: AddFormProps) {
           )}
         </View>
 
-        {/* Bank */}
-        <Text style={f.label}>BANCO</Text>
-        <View style={[f.inputRow, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-          <Ionicons name="business-outline" size={16} color={colors.subtext} />
+        <Text style={[f.label, { color: colors.text }]}>Banco</Text>
+        <View style={[f.inputRow, { backgroundColor: colors.surface, marginBottom: 12 }]}>
+          <Ionicons name="business-outline" size={18} color={colors.subtext} />
           <TextInput
             style={[f.input, { color: colors.text }]}
             placeholder="BBVA, Banamex…"
-            placeholderTextColor={colors.subtext}
+            placeholderTextColor={colors.muted}
             value={bank}
             onChangeText={setBank}
           />
         </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
-          <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 16 }}>
-            {BANKS.map(b => (
-              <TouchableOpacity
-                key={b}
-                style={[f.bankChip, { backgroundColor: bank === b ? colors.vivid[0] : colors.card, borderColor: bank === b ? colors.vivid[0] : colors.cardBorder }]}
-                onPress={() => setBank(b === 'Otro' ? '' : b)}
-              >
-                <Text style={[f.bankChipText, { color: bank === b ? '#fff' : colors.subtext }]}>{b}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </ScrollView>
+        <FilterPills<string>
+          value={bank}
+          onChange={b => setBank(b === 'Otro' ? '' : b)}
+          options={BANKS.map(b => ({ key: b, label: b }))}
+        />
 
-        <TouchableOpacity
-          style={[f.saveBtn, { backgroundColor: colors.vivid[0] }, saving && { opacity: 0.6 }]}
+        <GradientButton
+          label={saving ? 'Guardando…' : 'Guardar tarjeta'}
+          icon="checkmark"
           onPress={handleSave}
           disabled={saving}
-        >
-          {saving ? <ActivityIndicator color="#fff" /> : (
-            <>
-              <Ionicons name="checkmark" size={18} color="#fff" />
-              <Text style={f.saveBtnText}>Guardar tarjeta</Text>
-            </>
-          )}
-        </TouchableOpacity>
+          style={{ marginHorizontal: spacing.screen, marginTop: 26 }}
+        />
+        {saving && <ActivityIndicator style={{ marginTop: 12 }} color={colors.subtext} />}
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-function addStyles(colors: ReturnType<typeof useTheme>['colors']) {
-  return StyleSheet.create({
-    label:       { fontSize: 11, fontWeight: '700', letterSpacing: 0.5, color: colors.subtext, marginHorizontal: 16, marginTop: 16, marginBottom: 6 },
-    segRow:      { flexDirection: 'row', marginHorizontal: 16, gap: 6, marginBottom: 4, flexWrap: 'wrap' },
-    seg:         { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: colors.card },
-    segText:     { fontSize: 13, fontWeight: '600' },
-    inputRow:    { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 16, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 14, paddingVertical: 13, marginBottom: 4 },
-    input:       { flex: 1, fontSize: 15 },
-    counter:     { fontSize: 12 },
-    bankChip:    { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth },
-    bankChipText:{ fontSize: 12, fontWeight: '500' },
-    saveBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginHorizontal: 16, marginTop: 8, marginBottom: 32, borderRadius: 14, paddingVertical: 15, gap: 8 },
-    saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  });
-}
+const f = StyleSheet.create({
+  label:    { fontSize: 14, fontWeight: '700', marginHorizontal: spacing.screen, marginTop: 22, marginBottom: 10 },
+  segRow:   { flexDirection: 'row', marginHorizontal: spacing.screen, gap: 8, flexWrap: 'wrap' },
+  seg:      { paddingHorizontal: 16, paddingVertical: 10, borderRadius: radius.pill },
+  segText:  { fontSize: 13, fontWeight: '600' },
+  inputRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: spacing.screen, borderRadius: radius.md, paddingHorizontal: 16, minHeight: 54 },
+  input:    { flex: 1, fontSize: 16, fontWeight: '500' },
+  counter:  { fontSize: 12, fontWeight: '500' },
+});
 
-// ── Main modal ────────────────────────────────────────────────────────────────
+// ── Modal principal ─────────────────────────────────────────────────────────────
 
 interface Props {
   visible: boolean;
@@ -314,6 +312,7 @@ interface Props {
 export default function CardPickerModal({ visible, selectedCardId, onSelect, onClose }: Props) {
   const { colors } = useTheme();
   const dark = useColorScheme() === 'dark';
+  const insets = useSafeAreaInsets();
   const { cards, addCard, removeCard } = usePaymentCards();
   const [mode, setMode] = useState<'list' | 'add'>('list');
 
@@ -323,133 +322,113 @@ export default function CardPickerModal({ visible, selectedCardId, onSelect, onC
   };
 
   const handleDelete = (card: PaymentCard) => {
-    Alert.alert(
-      'Eliminar tarjeta',
-      `¿Eliminar "${card.alias}"?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Eliminar', style: 'destructive', onPress: () => removeCard(card.id) },
-      ],
-    );
+    Alert.alert('Eliminar tarjeta', `¿Eliminar "${card.alias}"?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Eliminar', style: 'destructive', onPress: () => removeCard(card.id) },
+    ]);
   };
 
+  const close = () => { setMode('list'); onClose(); };
+
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={[m.root, { backgroundColor: colors.bg }]}>
-        {/* Header */}
-        <View style={[m.header, { borderBottomColor: colors.separator }]}>
-          {mode === 'add' ? (
-            <TouchableOpacity onPress={() => setMode('list')}>
-              <Ionicons name="arrow-back" size={22} color={colors.vivid[0]} />
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity onPress={onClose}>
-              <Text style={[m.headerBtn, { color: colors.vivid[0] }]}>Cancelar</Text>
-            </TouchableOpacity>
-          )}
-          <Text style={[m.title, { color: colors.text }]}>
-            {mode === 'list' ? 'Tarjeta / CLABE' : 'Nueva tarjeta'}
-          </Text>
-          {mode === 'list' ? (
-            <TouchableOpacity onPress={() => setMode('add')}>
-              <Ionicons name="add" size={24} color={colors.vivid[0]} />
-            </TouchableOpacity>
-          ) : <View style={{ width: 24 }} />}
-        </View>
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={close}>
+      <View style={{ flex: 1 }}>
+        <ScreenBackground scene="neutral" />
 
         {mode === 'list' ? (
-          <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
-            {/* No card option */}
-            <TouchableOpacity
-              style={[m.cardRow, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
-              onPress={() => { onSelect(null); onClose(); }}
-              activeOpacity={0.7}
-            >
-              <View style={[m.iconWrap, { backgroundColor: colors.separator }]}>
-                <Ionicons name="close" size={18} color={colors.subtext} />
-              </View>
-              <Text style={[m.cardAlias, { color: colors.subtext }]}>Sin tarjeta asociada</Text>
-              {!selectedCardId && <Ionicons name="checkmark-circle" size={20} color={colors.vivid[0]} />}
-            </TouchableOpacity>
-
-            {/* Card list */}
-            {cards.map(card => {
-              const isSelected = card.id === selectedCardId;
-              const isClabe = card.kind === 'clabe';
-              const iconBg = isClabe ? colors.vivid[0] + '22' : brandIconBg(card.brand, dark);
-              const iconColor = isClabe ? colors.vivid[0] : null;
-
-              const copyClabe = async () => {
-                if (!card.clabe) return;
-                await Clipboard.setStringAsync(card.clabe);
-                if (Platform.OS === 'android') ToastAndroid.show('CLABE copiada', ToastAndroid.SHORT);
-                else Alert.alert('Copiada', 'CLABE copiada al portapapeles');
-              };
-
-              return (
-                <TouchableOpacity
-                  key={card.id}
-                  style={[m.cardRow, { backgroundColor: colors.card, borderColor: isSelected ? colors.vivid[0] : colors.cardBorder, borderWidth: isSelected ? 1.5 : StyleSheet.hairlineWidth }]}
-                  onPress={() => { onSelect(card); onClose(); }}
-                  onLongPress={() => handleDelete(card)}
-                  activeOpacity={0.7}
+          <>
+            <ModalHeader
+              title="Tarjeta / CLABE"
+              left={{ icon: 'close', label: 'Cerrar', onPress: close }}
+              right={{ icon: 'add', label: 'Agregar tarjeta', onPress: () => setMode('add') }}
+            />
+            <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.screen, paddingBottom: insets.bottom + 32 }} showsVerticalScrollIndicator={false}>
+              {/* Sin tarjeta */}
+              <Animated.View entering={enter(0)}>
+                <PressableScale
+                  onPress={() => { onSelect(null); close(); }}
+                  style={[m.cardRow, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}
                 >
-                  <View style={[m.iconWrap, { backgroundColor: iconBg }]}>
-                    {isClabe
-                      ? <Ionicons name="swap-horizontal-outline" size={18} color={iconColor!} />
-                      : <BrandSvgIcon brand={card.brand} size={28} />
-                    }
+                  <View style={[m.iconWrap, { backgroundColor: colors.accentSoft }]}>
+                    <Ionicons name="close" size={18} color={colors.subtext} />
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[m.cardAlias, { color: colors.text }]}>{card.alias}</Text>
-                    {isClabe && card.clabe ? (
-                      <Text style={[m.clabeText, { color: colors.vivid[0] }]}>
-                        {card.clabe.replace(/(\d{4})(?=\d)/g, '$1 ')}
-                      </Text>
-                    ) : (
-                      <Text style={[m.cardSub, { color: colors.subtext }]}>{cardLabel(card)}</Text>
-                    )}
-                  </View>
-                  {isClabe && card.clabe && (
-                    <TouchableOpacity
-                      onPress={copyClabe}
-                      style={[m.copyBtn, { backgroundColor: colors.vivid[0] + '22' }]}
-                      hitSlop={8}
+                  <Text style={[m.cardAlias, { color: colors.subtext, flex: 1 }]}>Sin tarjeta asociada</Text>
+                  {!selectedCardId && <Ionicons name="checkmark-circle" size={20} color={colors.vivid[0]} />}
+                </PressableScale>
+              </Animated.View>
+
+              {/* Lista de tarjetas */}
+              {cards.map((card, i) => {
+                const isSelected = card.id === selectedCardId;
+                const isClabe = card.kind === 'clabe';
+                const iconBg = isClabe ? colors.vivid[0] + '22' : brandIconBg(card.brand, dark);
+                const iconColor = isClabe ? colors.vivid[0] : null;
+
+                const copyClabe = async () => {
+                  if (!card.clabe) return;
+                  await Clipboard.setStringAsync(card.clabe);
+                  if (Platform.OS === 'android') ToastAndroid.show('CLABE copiada', ToastAndroid.SHORT);
+                  else Alert.alert('Copiada', 'CLABE copiada al portapapeles');
+                };
+
+                return (
+                  <Animated.View key={card.id} entering={enter(i + 1)}>
+                    <PressableScale
+                      onPress={() => { onSelect(card); close(); }}
+                      onLongPress={() => handleDelete(card)}
+                      style={[m.cardRow, {
+                        backgroundColor: colors.surface,
+                        borderColor: isSelected ? colors.vivid[0] : colors.cardBorder,
+                        borderWidth: isSelected ? 1.5 : StyleSheet.hairlineWidth,
+                      }]}
                     >
-                      <Ionicons name="copy-outline" size={14} color={colors.vivid[0]} />
-                      <Text style={[m.copyText, { color: colors.vivid[0] }]}>Copiar</Text>
-                    </TouchableOpacity>
-                  )}
-                  {isSelected && !isClabe && <Ionicons name="checkmark-circle" size={20} color={colors.vivid[0]} />}
-                </TouchableOpacity>
-              );
-            })}
+                      <View style={[m.iconWrap, { backgroundColor: iconBg }]}>
+                        {isClabe
+                          ? <Ionicons name="swap-horizontal-outline" size={18} color={iconColor!} />
+                          : <BrandSvgIcon brand={card.brand} size={28} />}
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[m.cardAlias, { color: colors.text }]}>{card.alias}</Text>
+                        {isClabe && card.clabe ? (
+                          <Text style={[m.clabeText, { color: colors.vivid[0] }]}>
+                            {card.clabe.replace(/(\d{4})(?=\d)/g, '$1 ')}
+                          </Text>
+                        ) : (
+                          <Text style={[m.cardSub, { color: colors.subtext }]}>{cardLabel(card)}</Text>
+                        )}
+                      </View>
+                      {isClabe && card.clabe && (
+                        <PressableScale onPress={copyClabe} hitSlop={8} style={[m.copyBtn, { backgroundColor: colors.vivid[0] + '22' }]}>
+                          <Ionicons name="copy-outline" size={14} color={colors.vivid[0]} />
+                          <Text style={[m.copyText, { color: colors.vivid[0] }]}>Copiar</Text>
+                        </PressableScale>
+                      )}
+                      {isSelected && !isClabe && <Ionicons name="checkmark-circle" size={20} color={colors.vivid[0]} />}
+                    </PressableScale>
+                  </Animated.View>
+                );
+              })}
 
-            {cards.length === 0 && (
-              <View style={m.empty}>
-                <Ionicons name="card-outline" size={40} color={colors.subtext} />
-                <Text style={[m.emptyText, { color: colors.subtext }]}>
-                  Aún no tienes tarjetas guardadas
-                </Text>
-                <TouchableOpacity
-                  style={[m.emptyBtn, { backgroundColor: colors.vivid[0] }]}
-                  onPress={() => setMode('add')}
-                >
-                  <Text style={m.emptyBtnText}>Agregar tarjeta</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+              {cards.length === 0 && (
+                <EmptyState
+                  icon="card-outline"
+                  title="Sin tarjetas guardadas"
+                  body="Agrega una tarjeta o CLABE para vincularla a tus suscripciones."
+                  cta="Agregar tarjeta"
+                  onCta={() => setMode('add')}
+                />
+              )}
 
-            <Text style={[m.hint, { color: colors.subtext }]}>
-              Mantén presionada una tarjeta para eliminarla
-            </Text>
-          </ScrollView>
+              {cards.length > 0 && (
+                <Text style={[m.hint, { color: colors.muted }]}>Mantén presionada una tarjeta para eliminarla</Text>
+              )}
+            </ScrollView>
+          </>
         ) : (
-          <AddCardForm
-            onSave={handleAdd}
-            onCancel={() => setMode('list')}
-            colors={colors}
-          />
+          <>
+            <ModalHeader title="Nueva tarjeta" left={{ icon: 'arrow-back', label: 'Regresar', onPress: () => setMode('list') }} />
+            <AddCardForm onSave={handleAdd} colors={colors} />
+          </>
         )}
       </View>
     </Modal>
@@ -457,20 +436,12 @@ export default function CardPickerModal({ visible, selectedCardId, onSelect, onC
 }
 
 const m = StyleSheet.create({
-  root:       { flex: 1 },
-  header:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
-  headerBtn:  { fontSize: 16 },
-  title:      { fontSize: 17, fontWeight: '600' },
-  cardRow:    { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginTop: 12, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, padding: 14, gap: 12 },
-  iconWrap:   { width: 48, height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  cardRow:    { flexDirection: 'row', alignItems: 'center', marginBottom: 10, borderRadius: radius.lg, borderWidth: StyleSheet.hairlineWidth, padding: 14, gap: 12 },
+  iconWrap:   { width: 46, height: 46, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
   cardAlias:  { fontSize: 15, fontWeight: '600' },
-  cardSub:    { fontSize: 13, marginTop: 2 },
-  empty:      { alignItems: 'center', gap: 12, paddingVertical: 48, paddingHorizontal: 32 },
-  emptyText:  { fontSize: 15, textAlign: 'center' },
-  emptyBtn:   { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
-  emptyBtnText: { color: '#fff', fontWeight: '600', fontSize: 15 },
-  hint:       { textAlign: 'center', fontSize: 12, marginTop: 16 },
+  cardSub:    { fontSize: 12, fontWeight: '400', marginTop: 2 },
+  hint:       { textAlign: 'center', fontSize: 12, fontWeight: '400', marginTop: 8 },
   clabeText:  { fontSize: 13, fontWeight: '600', letterSpacing: 1.2, marginTop: 2 },
-  copyBtn:    { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 10 },
-  copyText:   { fontSize: 12, fontWeight: '600' },
+  copyBtn:    { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 9, paddingVertical: 5, borderRadius: radius.pill },
+  copyText:   { fontSize: 12, fontWeight: '700' },
 });
